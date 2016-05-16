@@ -186,7 +186,7 @@ Their palette size is constrained since they encode pixels as (packed) bytes.
 FLIF supports arbitrary palette sizes and
 both 4-channel (YCoCgA) and 3-channel palettes (YCoCg), encoding the
 alpha channel separately if needed.
-The default maximum palette size is 1024 --- larger palettes rarely improve compression.
+The default maximum palette size is 512 --- larger palettes rarely improve compression.
 
 %If the image has a nontrivial alpha channel (i.e. it is not fully opaque), then
 %FLIF first attempts
@@ -248,21 +248,27 @@ We have implemented two different methods to traverse the image.
 The first method is a simple scanline traversal. %; it is %discussed in Section~\ref{sec:simple_traversal}.
 %somewhat faster and easier to implement than the second one, but it is not suitable for progressive decoding.
 The second method (the default method) is a generalization of PNG's Adam7 interlacing; it could be called ``Adam$\infty$ interlacing''.
-It is somewhat more complicated and can result in slightly larger files, but it allows progressive decoding.
+%It is somewhat more complicated and can result in slightly larger files, but i
+It allows progressive decoding.
 %This second method, which is FLIF's default method, will be discussed in Section~\ref{sec:interlacing}.
 
 %Each color channel is encoded separately.
 In both methods, the differences between predicted pixel values and actual values are encoded.
 If the prediction is good, the differences are (close to) zero.
-
-The differences can be positive or negative. At first sight, their range
+%
+The differences
+are signed.
+%can be positive or negative.
+At first sight, their range
 is twice as large as the range of the original numbers. However, given the guess, only
 half of that range is valid. Furthermore, not all YCoCg triples correspond
 to valid RGB triples, further reducing the range.
 The color buckets (if available)
 are also used reduce the range and to snap the guessed value to a valid value:
 if the relevant color bucket is discrete, the guess gets rounded to the nearest value in the list;
-if it is continuous, then the guess gets clipped to the interval.
+otherwise it
+%if it is continuous, then the guess 
+gets clipped to the interval.
 %This will be discussed in more detail in
 %Section \ref{sec:rac:interval}.
 
@@ -270,13 +276,13 @@ if it is continuous, then the guess gets clipped to the interval.
 \begin{center}
 \begin{tabular}{|c|c|c|c|}
 \hline
-     &      & $TT$ & \\
+     &      & \boldmath $TT$ & \\
 \hline
-     & $TL$ &  $T$ & $TR$ \\
+     & \boldmath $TL$ & \boldmath $T$ & \boldmath $TR$ \\
 \hline
-$LL$ &  $L$ &   ?  &  $R$\\
+\boldmath $LL$ & \boldmath $L$ &   ?  &  $R$\\
 \hline
-     & $BL$ &  $B$ & $BR$ \\
+     & \boldmath $BL$ &  $B$ & \boldmath $BR$ \\
 \hline
 \end{tabular}
 \end{center}
@@ -295,9 +301,9 @@ so those values can be used to compute a prediction that is also available at de
 %
 As a prediction, we take the median of %the following three values:
 $T$ (top), $L$ (left), and $T+L-TL$ (gradient).
-This predictor is exactly the same as the one used in the FFV1 lossless video codec; it is a good guess if
-the local area of the image happens to contain a smooth color gradient.
-
+This predictor is exactly the same as the one used in the FFV1 lossless video codec;
+%it is a good guess if the local area of the image happens to contain a smooth color gradient.
+it works well on smooth color gradients.
 
 
 
@@ -334,58 +340,20 @@ $D$ & $E$ & $F$ \\
 \end{tabular}
 \end{center}
 }
-In a horizontal step, $TL$, $T$, $TR$, $BL$, $B$ and $BR$ are known pixels (from a previous interlacing step), $L$ is also known
-(it is the previous pixel in the current interlacing step).
-As a prediction we use the median of: % the following three values:
-the average of top and bottom $(T+B)/2$,
+The pixels indicated in bold in Figure~\ref{pixels} are known
+at decode time. In a horizontal step, $B$ is also known, while in
+a vertical step, $R$ is known.
+%In a horizontal step, $TL$, $T$, $TR$, $BL$, $B$ and $BR$ are known pixels (from a previous interlacing step), $L$ is also known
+%(it is the previous pixel in the current interlacing step).
+We define three predictors:
+\begin{enumerate}
+\item The average of top and bottom $(T+B)/2$ (horizontal step) or
+left and right $(L+R)/2$ (vertical step);
+\item The median of: the above average,
 the top-left gradient $T+L-TL$, and
-the bottom-left gradient $B+L-BL$.
-%
-In a vertical step we use the median of
-%the average of left and right 
-$(L+R)/2$ and
-%the top-left gradient 
-$T+L-TL$ and
-%the top-right gradient 
-$T+R-TR$.
-
-\comment{
-In a vertical step, $TL$, $L$, $BL$, $TR$, $R$ and $BR$ are known from a previous interlacing step and $T$ is
-previously outputted in the current interlacing step.
-As a prediction we use the median of: % the following three values:
-the average of left and right $(L+R)/2$,
-the top-left gradient $T+L-TL$, and
-the top-right gradient $T+R-TR$.
-}
-%The top-left gradient is also used in the scanline traversal method, but the other two values are based on pixels $D$ and $E$ which
-%would not be known during decoding in the scanline traversal method.
-%
-\comment{
-In the case of a vertical step, we have the following situation in general:
-
-\begin{center}
-\begin{tabular}{|c|c|c|c|c|}
-\hline
-$A$ & $P$ & $D$ \\
-\hline
-$B$ & $X$ & $E$ \\
-\hline
-$C$ &     & $F$ \\
-\hline
-\end{tabular}
-\end{center}
-
-where $A$, $B$, $C$, $D$, $E$ and $F$ are known pixels (from a previous interlacing step), $P$ is also known
-(it is a pixel outputted in the current interlacing step), and $X$ is
-the pixel to be outputted.
-
-We use as a prediction for $X$ the median of these three values:
-\begin{itemize}
-\item the linear interpolation between left and right: $(B+E)/2$
-\item the top-left gradient $P+B-A$
-\item the top-right gradient $P+E-D$
-\end{itemize}
-}
+the gradient $L+B-BL$ or $T+R-TR$;
+\item The median of 3 known neighbors ($L$, $T$, and $B$ or $R$).
+\end{enumerate}
 %
 %The gradients can get a value outside the valid range, %:
 %e.g. if the range is $[0,255]$ then the gradient can get a value as large as $510$ and as low as $-255$.
@@ -546,10 +514,16 @@ and the pixel value(s) in the 0, 1, 2 or 3 previously encoded channels.
 %The above two to five properties are also used in the interlacing mode. The five properties from the
 %``large'' context model of FFV1 are also used for the alpha, Y and Co channels; for the Cg channel,
 %$LL-L$ and $TT-T$ are omitted.
-the above 7 to 10 properties are also used.
-Additionally, one more property is used: the
+the above 7 to 10 properties are also used,
+except that instead of $L-TL$ and $TL-T$, we use
+$L-(TL+BL)/2$ and $T-(TL+TR)/2$, and instead of $T-TR$ we
+use either $B-(BL+BR)/2$ (horizontal step) or $R-(TR+BR)/2)$ (vertical step).
+Additionally, the following properties are used: the
 difference between the two adjacent pixels from the previous interlacing step
-($T-B$ in horizontal steps, $L-R$ in vertical steps).
+($T-B$ in horizontal steps, $L-R$ in vertical steps),
+and for the chroma channels: the difference between the actual luma pixel value
+and the one predicted by the `average' predictor.
+
 %Referring to section~\ref{sec:prediction_interlacing}, this corresponds to $B-E$.
 
 %In total, for pixels in the alpha channel, there are 8 properties, for pixels in the Y channel there are 8 or 9 properties
@@ -615,9 +589,10 @@ For each encoded value, the decision tree is traversed until a leaf node is reac
 Initially, the actual context is used to output the value, and a {\it cost estimate} (number of bits for the compressed output) is updated.
 For each of the properties, each leaf node maintains a running average of the property values encountered at that leaf;
 one virtual context is used for values below the average, the other is used for higher-than-average values.
-For each property we select the virtual context accordingly,
-and we output the same value again, but only ``virtually'', that is,
-nothing is written to the compressed file, but the chances and cost estimate are updated.
+%For each property we select the virtual context accordingly,
+%and we output the same value again, but only ``virtually'', that is,
+%nothing is written to the compressed file, but the chances and cost estimate are updated.
+For each property we select the virtual context accordingly, and update its chances and cost estimate.
 
 
 
@@ -700,29 +675,28 @@ On typical images the cost of explicit trees is more than compensated by the gai
 
 
 \begin{figure}
-\footnotesize
+\scriptsize
 \begin{center}
-\setlength\tabcolsep{1.7pt} % default value: 6pt
-\begin{tabular}{lcc|c|c|c|c|c|c|c|c|c|c}
-\multicolumn{3}{l|}{Corpus} & \multicolumn{8}{c|}{Lossless formats} & \multicolumn{2}{c}{JPEG*}\\
-\multicolumn{3}{r|}{\scriptsize (bit depth)} & FLIF & FLIF* & WebP & BPG & PNG  & PNG* & JP2* & JXR &\scriptsize  100\% &\scriptsize  90\%\\
+\setlength\tabcolsep{1.8pt} % default value: 6pt
+\begin{tabular}{lcc|c|c|c|c|c|c|c|c|c|c|c}
+\multicolumn{3}{l|}{Corpus} & \multicolumn{9}{c|}{Lossless formats} & \multicolumn{2}{c}{JPEG*}\\
+\multicolumn{3}{r|}{\tiny (bit depth)} & FLIF & FLIF* & WebP & BPG & PNG  & PNG* & JP2* & JXR & JLS &\tiny  100\% &\tiny  90\%\\
 \hline
 \multirow{7}{*}{\rotatebox{90}{\scriptsize Natural (photo)}}
-& \cite{corpus_testimages} & \scriptsize 8 & \bf 1.000 & 1.044  & 1.230 & 1.759 & 1.475 & 2.101   & 1.248 & 1.670 & \scriptsize 1.050 & \scriptsize 0.300 \\
-& \multicolumn{2}{r|}{\cite{corpus_testimages}  \scriptsize 16} & 1.011 & 1.012 & / & / & 1.397 & 1.484 & \bf 1.000 & 1.986 & / & /\\
-& \cite{corpus_kodak}      & \scriptsize 8 & 1.022 & \bf 1.000 & 1.085 & 1.584 & 1.403 & 1.633 & 1.077 & 1.225 & \scriptsize 0.999 & \scriptsize 0.297 \\
-& \cite{corpus_wikipedia}  & \scriptsize 8 & \bf 1.000 & 1.020 & 1.034 & 1.329 & 1.272 & 1.430 & 1.065 & 1.158 & \scriptsize 0.972 & \scriptsize 0.261 \\
-& \cite{corpus_icip-core1} & \scriptsize 8 & \bf 1.000 & 1.016 & 1.061 & 1.481 & 1.338 & 1.620 & 1.077 & 1.221 & \scriptsize 0.987 & \scriptsize 0.265 \\
-& \cite{corpus_Lukas-2D} & \scriptsize 8 & \bf 1.000 & 1.018 & 1.057 & 1.227 & 1.135 & 1.362 & 1.073 & 1.289 & \scriptsize 1.148 & \scriptsize 0.381 \\
-& \multicolumn{2}{r|}{\cite{corpus_Lukas-2D}  \scriptsize 12} & \bf 1.000 & 1.007 & / & 2.121 & 2.024 & 2.344 & 2.854 & 4.952 & / & /\\
+& \cite{corpus_testimages} & \tiny 8 & 1.002 & \bf 1.000  & 1.234 & 1.318 & 1.480 & 2.108   & 1.253 & 1.676 & 1.242 & \tiny 1.054 & \tiny 0.302 \\
+& \multicolumn{2}{r|}{\cite{corpus_testimages}  \tiny 16} & 1.017 & \bf 1.000 & / & / & 1.414 & 1.502 & \bf 1.012 & 2.011 & 1.111 & / & /\\
+& \cite{corpus_kodak}      & \tiny 8 & 1.032 & \bf 1.000 & 1.099 & 1.163 & 1.429 & 1.664 & 1.097 & 1.248 & 1.500 & \tiny 1.017 & \tiny 0.302 \\
+& \cite{corpus_wikipedia}  & \tiny 8 & 1.003 & \bf 1.000 & 1.040 & 1.081 & 1.282 & 1.441 & 1.074 & 1.168 & 1.225 & \tiny 0.980 & \tiny 0.263 \\
+& \cite{corpus_icip-core1} & \tiny 8 & 1.032 & \bf 1.000 & 1.098 & 1.178 & 1.388 & 1.680 & 1.117 & 1.267 & 1.305 & \tiny 1.023 & \tiny 0.275 \\
+& \cite{corpus_Lukas-2D} & \tiny 8 & 1.001 & \bf 1.000 & 1.059 & 1.159 & 1.139 & 1.368 & 1.078 & 1.294 & 1.064 & \tiny 1.152 & \tiny 0.382 \\
+& \multicolumn{2}{r|}{\cite{corpus_Lukas-2D}  \tiny 12} & 1.009 & \bf 1.000 & / & 1.854 & 2.053 & 2.378 & 2.895 & 5.023 & 2.954 & / & /\\
 \hline
 \multirow{6}{*}{\rotatebox{90}{\scriptsize Artificial}}
-%& \cite{corpus_renders} & \bf 1.000 & 1.007 & 1.124 & 1.187 & 1.293 & 1.399 & 1.198 & 1.527 & \scriptsize 0.898 & \scriptsize 0.130 \\
-& \cite{corpus_fractals} & \scriptsize 8 & \bf 1.000 & 1.028 & 1.168 & 1.229 & 1.349 & 1.547 & 1.381 & 1.733 & \scriptsize 1.147 & \scriptsize 0.224 \\
-& \cite{corpus_cartoons} & \scriptsize 8 & \bf 1.000 & 1.150 & 1.401 & 4.003 & 1.896 & 2.500 & 4.228 & 7.685 & \scriptsize 5.101 & \scriptsize 2.342 \\
-& \cite{corpus_testimages-pattern-8bit}  & \scriptsize 8 & \bf 1.000 &  1.117 & 2.003 & 24.73 & 2.695 & 3.058 & 10.61 & 34.24 & \scriptsize 15.30 & \scriptsize 9.435 \\
-& \cite{corpus_openstreetmap} & \scriptsize 8 & 1.072 & 1.186 & \bf 1.000 & 3.038 & 1.231 & 1.588 & 2.982 & 3.685 & \scriptsize 3.021 & \scriptsize 1.095\\
-& \cite{corpus_PSF}           & \scriptsize 8 & \bf 1.000 & 1.104 & 1.653 & 3.219 & 2.173 & 2.731 & 4.515 & 10.21 & \scriptsize 5.708 & \scriptsize 2.947 \\
+& \cite{corpus_fractals} & \tiny 8 & 1.039 & \bf 1.000 & 1.212 & 1.145 & 1.403 & 1.609 & 1.436 & 1.803 & 1.220 & \tiny 1.193 & \tiny 0.233 \\
+& \cite{corpus_cartoons} & \tiny 8 & \bf 1.000 & 1.095 & 1.371 & 1.649 & 1.880 & 2.478 & 4.191 & 7.619 & 3.572 & \tiny 5.058 & \tiny 2.322 \\
+& \cite{corpus_testimages-pattern-8bit}  & \tiny 8 & \bf 1.000 &  1.037 & 1.982 & 4.408 & 2.619 & 2.972 & 10.31 & 33.28 & 33.12 & \tiny 14.87 & \tiny 9.170 \\
+& \cite{corpus_openstreetmap} & \tiny 8 & 1.106 & 1.184 & \bf 1.000 & 2.184 & 1.298 & 1.674 & 3.144 & 3.886 & 2.995 & \tiny 3.186 & \tiny 1.155\\
+& \cite{corpus_PSF}           & \tiny 8 & \bf 1.000 & 1.049 & 1.676 & 1.734 & 2.203 & 2.769 & 4.578 & 10.35 & 4.371 & \tiny 5.787 & \tiny 2.987 \\
 \end{tabular}
 \end{center}
 * : Format supports progressive decoding (interlacing).\\
@@ -738,23 +712,27 @@ Numbers are scaled so the best (smallest) lossless format corresponds to 1.
 
 We have evaluated (the reference encoder of) FLIF
 by comparing its compression density to that of other lossless image compression algorithms
-(PNG \cite{PNG}, JPEG 2000 \cite{JPEG2000}, JPEG XR \cite{JPEGXR}, WebP \cite{WebP},
+(PNG \cite{PNG}, JPEG 2000 \cite{JPEG2000}, JPEG XR \cite{JPEGXR}, JPEG-LS \cite{JPEGLS}, WebP \cite{WebP},
 BPG \cite{BPG}) % (which all have a lossless mode),
 and to lossy JPEG \cite{JPEG} at maximum quality\footnote{
 Even at 100\% quality, JPEG is lossy since its YCbCr transform reduces the number of
-possible colors from $2^{24} = 16\,777\,216$ to only $4\,007\,551$.}
+possible colors from $2^{24} = 16\,777\,216$ to only $\sim$ 4 million.} % $4\,007\,551$.}
 and at 90\% quality.
 To optimize non-interlaced PNG files, we used ZopfliPNG \cite{ZopfliPNG};
-for Adam7 interlaced PNGs, we used OptiPNG \cite{OptiPNG}.
-For the other formats we used default lossless encoder options.
-Figure~\ref{benchmarks} shows the results; see \cite{flif_benchmarks} for more details.
+for %Adam7 
+interlaced PNGs, we used OptiPNG \cite{OptiPNG}.
+For BPG we used the options {\tt -m 9 -e jctvc}; for WebP we used {\tt -m 6 -q 100}.
+For the other formats we used default lossless options.
 
+Figure~\ref{benchmarks} shows the results; see \cite{flif_benchmarks} for more details.
+%
 %We will also compare ``lossy'' partial decodings of interlaced FLIF files
 %with progressive JPEG, progressive JPEG 2000, Adam7 interlaced PNG and interlaced GIF.
 %Finally we evaluate the time and space complexity of encoding and decoding.
-For one corpus (16-bit photographs), JPEG 2000 performed best; for one corpus (geographic maps), WebP was the best format.
-For all other corpuses, FLIF was the (sometimes very clear) winner.
-The difference between its interlaced and non-interlaced mode is typically small.
+%For one corpus (16-bit photographs), JPEG 2000 performed best; f
+On one corpus (geographic maps), WebP was the best format.
+On the other corpuses, FLIF won (sometimes very clearly).
+%The difference between its interlaced and non-interlaced mode is typically small.
 
 In terms of encoding/decoding speed, (our implementation of) FLIF is somewhat slower than the other formats.
 This is explained in part by the inherent computational complexity of the algorithm, and in part by our implementation
