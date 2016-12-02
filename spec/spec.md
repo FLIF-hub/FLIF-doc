@@ -14,24 +14,23 @@ A FLIF file consists of 4 parts, with increasingly complicated encoding methods:
 |------------------|-----------------------------------|---------------------------------------|
 | 4 bytes          | Magic                             | `"FLIF"`                              |
 | 4 bits           | Interlacing, animation            | 3 = ni still; 4 = i still; 5 = ni anim; 6 = i anim  |
-| 4 bits           | Number of channels                | 1 = Grayscale; 3 = RGB; 4 = RGBA      |
-| 1 byte           | Bytes per channel (Bpc)           | `"0"`,`"1"`,`"2"`   (`"0"`=custom)    |
-| varint           | Width                             | width-1                               |
-| varint           | Height                            | height-1                              |
-| varint           | Number of frames (nb_frames)      | nb_frames-2  (only if animation)      |
+| 4 bits           | Number of channels (**nb_channels**)  | 1 = Grayscale; 3 = RGB; 4 = RGBA      |
+| 1 byte           | Bytes per channel (**Bpc**)           | '0','1','2'   (`"0"`=custom)    |
+| varint           | Width                             | **width**-1                               |
+| varint           | Height                            | **height**-1                              |
+| varint           | Number of frames (**nb_frames**)  | **nb_frames**-2  (only if animation)      |
 
 The fifth byte is an ASCII character that can be interpreted as follows:
-for non-interlaced still images: `"1"`=Grayscale, `"3"`=RGB, `"4"`=RGBA,
-for interlaced images add +0x10 (so `"A"`=Grayscale, `"C"`=RGB, `"D"`=RGBA),
-for animations add +0x20 (so `"Q"`,`"S"`,`"T"` for non-interlaced, `"a"`,`"c"`,`"d"` for interlaced).
-Looking at it as two half-bytes: the first
+for non-interlaced still images: '1'=Grayscale, '3'=RGB, '4'=RGBA,
+for interlaced images add +0x10 (so 'A'=Grayscale, 'C'=RGB, 'D'=RGBA),
+for animations add +0x20 (so 'Q', 'S', 'T' for non-interlaced, 'a','c','d' for interlaced).
 
 Variable-size integer encoding (varint):
   An unsigned integer (Big-Endian, MSB first) stored on a variable number of bytes.
   All the bytes except the last one have a '1' as their first bit.
   The unsigned integer is represented as the concatenation of the remaining 7 bit codewords.
 
-nb_frames is 1 for a still image, > 1 for an animation.
+**nb_frames** is 1 for a still image, > 1 for an animation.
 
 # Part 2: metadata
 
@@ -51,27 +50,27 @@ This optional part is a concatenation of chunks that each look like this:
 | Type             | Description                       |
 |------------------|-----------------------------------|
 | 4 bytes          | Chunk name                        |
-| varint           | Chunk size (`size`)               |
-| `size` bytes     | DEFLATE-compressed chunk content  |
+| varint           | Chunk length (_size_)             |
+| _size_ bytes     | DEFLATE-compressed chunk content  |
 
 
 # Part 3: second header
 
-| Type             | Description                       | Condition                             |
-|------------------|-----------------------------------|---------------------------------------|
+| Type             | Description                       | Condition                             | Default value |
+|------------------|-----------------------------------|---------------------------------------|---------------|
 | 1 byte           | NUL byte (`"\0"`)                 |                                       |
-| rac24(1,16)      | Bits per pixel of the channels    | Bpc == '0': repeat(nb_channels)       |
-| rac24(0,1)       | Flag: alpha_zero                  | nb_channels > 3                       |
-| rac24(0,100)     | Number of loops                   | nb_frames > 1                         |
-| rac24(0,60_000)  | Frame delay in ms                 | nb_frames > 1: repeat(nb_frame)       |
-| rac24(0,1)       | Flag: has_custom_cutoff_and_alpha |                                       |
-| rac24(1,128)     | Cutoff                            | has_custom_cutoff_and_alpha           |
-| rac24(2,128)     | Alpha divisor                     | has_custom_cutoff_and_alpha           |
-| rac24(0,1)       | Flag: has_custom_bitchance        | has_custom_cutoff_and_alpha           |
-| ?                | Bitchance                         | has_custom_bitchance                  |
+| rac24(1,16)      | Bits per pixel of the channels    | **Bpc** == '0': repeat(**nb_channels**)   | 8 if **Bpc** == '1', 16 if **Bpc** == '2'
+| rac24(0,1)       | Flag: **alpha_zero**              | **nb_channels** > 3                       | 0
+| rac24(0,100)     | Number of loops                   | **nb_frames** > 1                         |
+| rac24(0,60_000)  | Frame delay in ms                 | **nb_frames** > 1: repeat(**nb_frames**)  |
+| rac24(0,1)       | Flag: **has_custom_cutoff_and_alpha** |                                       |
+| rac24(1,128)     | **cutoff**                        | **has_custom_cutoff_and_alpha**           | 2
+| rac24(2,128)     | **alpha divisor**                 | **has_custom_cutoff_and_alpha**           | 19
+| rac24(0,1)       | Flag: **has_custom_bitchance**    | **has_custom_cutoff_and_alpha**           | 0
+| ?                | Bitchance                         | **has_custom_bitchance**                  |
 | variable         | Transformations (see below)       |                                       |
 | rac24(1) = 0     | Indicator bit: done with transformations |                                |
-| rac24(0,2)       | Invisible pixel predictor         | alpha_zero && nb_frames > 3 && interlaced && alpha range includes zero |
+| rac24(0,2)       | Invisible pixel predictor         | **alpha_zero** && interlaced && alpha range includes zero |
 
 ## Transformations
 
@@ -106,15 +105,15 @@ Transformations have to be encoded in ascending order of transformation identifi
 There is one tree per non-trivial channel (a channel is trivial if its range is a singleton or if it doesn't exist).
 The trees are encoded independently and in a recursive (depth-first) way, as follows:
 
-nb_properties depends on the channel, the number of channels, and the encoding method (interlaced or non-interlaced).
+**nb_properties** depends on the channel, the number of channels, and the encoding method (interlaced or non-interlaced).
 
 | Type                       | Description                        | Condition |
 |----------------------------|------------------------------------|-----------|
-| rac24_A(0,nb_properties)   | 0=leaf node, > 0: property         |           |
+| rac24_A(0,**nb_properties**)| 0=leaf node, > 0: _property_+1    |           |
 | rac24_B(1,512)             | node counter                       | not a leaf node |
-| rac24_C(range[property].min,range[property].max-1) | test_value   | not a leaf node |
-| recursive encoding of left branch | where range[property].min = test_value+1  | not a leaf node |
-| recursive encoding of right branch | where range[property].max = test_value   | not a leaf node |
+| rac24_C(range[_property_].min,range[_property_].max-1)           | _test_value_   | not a leaf node |
+| recursive encoding of left branch | where range[_property_].min = _test_value_+1  | not a leaf node |
+| recursive encoding of right branch | where range[_property_].max = _test_value_   | not a leaf node |
 
 
 ## Non-Interlaced
@@ -123,6 +122,6 @@ nb_properties depends on the channel, the number of channels, and the encoding m
 
 | Type             | Description                       | Condition                 |
 |------------------|-----------------------------------|---------------------------|
-| rac24(1)         | Boolean: have_checksum            |                           |
-| rac24(16)        | Most significant 16 bits of checksum | have_checksum          |
-| rac24(16)        | Least significant 16 bits of checksum | have_checksum         |
+| rac24(1)         | Boolean: **have_checksum**            |                       |
+| rac24(16)        | Most significant 16 bits of checksum  | **have_checksum**     |
+| rac24(16)        | Least significant 16 bits of checksum | **have_checksum**     |
