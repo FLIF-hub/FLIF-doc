@@ -12,12 +12,19 @@ A FLIF file consists of 4 parts, with increasingly complicated encoding methods:
 
 | Type             | Description                       | Value                                 |
 |------------------|-----------------------------------|---------------------------------------|
-| 4 bytes          | Magic: `"FLIF"`                   |                                       |
-| 1 byte           | Format (nb_channels, anim?, interlaced?) | `"1"`=Grayscale, `"3"`=RGB, `"4"`=RGBA, +0x10 for interlaced, +0x20 for animation  |
+| 4 bytes          | Magic                             | `"FLIF"`                              |
+| 4 bits           | Interlacing, animation            | 3 = ni still; 4 = i still; 5 = ni anim; 6 = i anim  |
+| 4 bits           | Number of channels                | 1 = Grayscale; 3 = RGB; 4 = RGBA      |
 | 1 byte           | Bytes per channel (Bpc)           | `"0"`,`"1"`,`"2"`   (`"0"`=custom)    |
 | varint           | Width                             | width-1                               |
 | varint           | Height                            | height-1                              |
 | varint           | Number of frames (nb_frames)      | nb_frames-2  (only if animation)      |
+
+The fifth byte is an ASCII character that can be interpreted as follows:
+for non-interlaced still images: `"1"`=Grayscale, `"3"`=RGB, `"4"`=RGBA,
+for interlaced images add +0x10 (so `"A"`=Grayscale, `"C"`=RGB, `"D"`=RGBA),
+for animations add +0x20 (so `"Q"`,`"S"`,`"T"` for non-interlaced, `"a"`,`"c"`,`"d"` for interlaced).
+Looking at it as two half-bytes: the first
 
 Variable-size integer encoding (varint):
   An unsigned integer (Big-Endian, MSB first) stored on a variable number of bytes.
@@ -96,6 +103,20 @@ Transformations have to be encoded in ascending order of transformation identifi
 # Part 4: pixel data
 
 ## MANIAC tree encoding
+There is one tree per non-trivial channel (a channel is trivial if its range is a singleton or if it doesn't exist).
+The trees are encoded independently and in a recursive (depth-first) way, as follows:
+
+nb_properties depends on the channel, the number of channels, and the encoding method (interlaced or non-interlaced).
+
+| Type                       | Description                        | Condition |
+|----------------------------|------------------------------------|-----------|
+| rac24_A(0,nb_properties)   | 0=leaf node, > 0: property         |           |
+| rac24_B(1,512)             | node counter                       | not a leaf node |
+| rac24_C(range[property].min,range[property].max-1) | test_value   | not a leaf node |
+| recursive encoding of left branch | where range[property].min = test_value+1  | not a leaf node |
+| recursive encoding of right branch | where range[property].max = test_value   | not a leaf node |
+
+
 ## Non-Interlaced
 ## Interlaced
 ## Checksum
