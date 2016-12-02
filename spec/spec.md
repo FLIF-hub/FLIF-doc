@@ -1,5 +1,3 @@
-A flif file can be wrapped in an
-[`ar` archive](https://en.wikipedia.org/wiki/Ar_(Unix)).
 
 # Overview of the format
 
@@ -26,8 +24,6 @@ A flif file can be wrapped in an
 # Magic
 
 The flif format can be recognized by the first bytes being the 4 ascii bytes `"FLIF"`.
-Note that a flif file can be wrapped in an `ar` archive
-and might thus have a 8 byte `"!<arch>\n"` magic instead.
 
 # Format (encoding, n_planes)
 # Bytes per pixel (Bpp)
