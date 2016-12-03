@@ -56,6 +56,14 @@ This optional part is a concatenation of chunks that each look like this:
 
 # Part 3: second header
 
+From here on, all values are encoded using arithmetic coding.
+
+rac24(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using the UniformSymbolCoder and a 24-bit RAC. This encoding is not context-adaptive, and every number in the interval gets a fixed chance (close to a uniform distribution, hence the name).
+rac24(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for rac24(0,2^_b_-1).
+
+rac24_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using the SimpleSymbolCoder and a 24-bit RAC, where the chance table is given by CONTEXT. This encoding is context-adaptive; numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance.
+
+
 | Type             | Description                       | Condition                             | Default value |
 |------------------|-----------------------------------|---------------------------------------|---------------|
 | 1 byte           | NUL byte (`"\0"`)                 |                                       |
@@ -72,6 +80,17 @@ This optional part is a concatenation of chunks that each look like this:
 | rac24(1) = 0     | Indicator bit: done with transformations |                                |
 | rac24(0,2)       | Invisible pixel predictor         | **alpha_zero** && interlaced && alpha range includes zero |
 
+
+Channels are ordered as follows:
+
+| Channel number | Description |
+|----------------|-------------|
+| 0              | Red or Gray |
+| 1              | Green       |
+| 2              | Blue        |
+| 3              | Alpha       |
+
+
 ## Transformations
 
 | Type             | Description                       |
@@ -81,6 +100,25 @@ This optional part is a concatenation of chunks that each look like this:
 | variable         | Transformation data (depends on transformation) |
 
 Transformations have to be encoded in ascending order of transformation identifier. All transformations are optional.
+
+Transformations serve two main purposes:
+
+1. to modify the pixel data (in a reversible way) to make it compress better, and
+2. to keep track of the range of actually occuring pixel values, in order to narrow it down.
+
+Initially, pixel values are assumed to be in the range 0..2^(bit_depth); this range can be modified by transformations.
+We'll use **range(_channel_).min** and **range(_channel_).max** to denote the global minimum and maximum value of a particular channel. We also use a potentially more accurate (narrow) conditional range **crange(_channel_,_values_)** to denote the range of a pixel value in channel **_channel_**, _given that the pixel values in previously encoded channels are_ **_values_**. Initially, the conditional ranges are simply equal to the global range, but transformations might change that.
+
+As a typical example, consider 8-bit RGBA to which the YCoCg transformation gets applied:
+
+| Channel number | Original meaning | Original range | New meaning        | New range   |
+|----------------|-------------|---------------------|--------------------|-------------|
+| 0              | Red         | 0..255              | Luma (Y)           | 0..255      |
+| 1              | Green       | 0..255              | Chroma orange (Co) | -255..255   |
+| 2              | Blue        | 0..255              | Chroma green (Cg)  | -255..255   |
+| 3              | Alpha       | 0..255              | Alpha              | 0..255      |
+
+In this example, the conditional ranges also change: e.g. **crange(1,2)** (the range for Co given that Y=2) happens to be -7..7.
 
 ### Transformation 0: ChannelCompact
 ### Transformation 1: YCoCg
@@ -101,6 +139,73 @@ Transformations have to be encoded in ascending order of transformation identifi
 
 # Part 4: pixel data
 
+## Non-Interlaced method
+
+If this encode method is used, then we start immediately with the encoding of the MANIAC trees (see below), followed by the encoding of the pixels. The order in which the pixels are encoded is described by the following nested loops:
+
+* For all channels: (in the order 4,3,0,1,2, skipping those that don't exist or have a singleton range)
+  * For all rows: (from 0 to **height**-1) :
+    * For all frames: (from 0 to **nb_frames**-1) :
+      * For all columns: (from 0 to **width**-1, or in case FrameShape is used, from begin[row] to end[row])
+        * Encode a pixel
+
+
+## Interlaced method
+
+For interlacing, we define the notion of _zoomlevels_. Zoomlevel 0 is the full image. Zoomlevel 1 are all the even-numbered rows of the image (counting from 0). Zoomlevel 2 are all the even-numbered columns of zoomlevel 1. In general: zoomlevel _2k+1_ are all the even-numbered rows of zoomlevel _2k_, and zoomlevel _2k+2_ are all the even-numbered columns of zoomlevel _2k+1_.
+
+In other words, every even-numbered zoomlevel _2k_ is a downsampled version of the image, at scale 1:_2^k_.
+
+We defined the 'maximum zoomlevel' **max_zl** of an image as the zoomlevel with the lowest number that consists of a single pixel. This is always the pixel in the top-left corner of the image (row 0, column 0). This pixel is always encoded first.
+
+The zoomlevels are encoded from highest (most zoomed out) to lowest; in each zoomlevel, obviously only those pixels are encoded that haven't been encoded previously. So in an even-numbered zoomlevel, the odd-numbered rows are encoded, while in an odd-numbered zoomlevel, the odd-numbered columns are encoded.
+
+If the interlaced encode method is used, we do not encode the MANIAC trees right away. Instead, we initialize the trees to a single root node per channel, and start encoding a 'rough preview' of the image (a few of the highest zoomlevels).
+This allows a rough thumbnail extraction without needing to decode the MANIAC tree.
+Then the MANIAC tree is encoded, and then the rest of the zoomlevels are encoded.
+
+
+
+| Type                          | Description                       |
+|-------------------------------|-----------------------------------|
+| rac24(0..**max_zl**)          | Number of the first MANIAC-encoded zoomlevel: **first_zl** |
+| Encode_zoomlevels(**max_zl**,**first_zl**+1) | encoding of zoomlevels **max_zl** until **first_zl**+1  |
+| encoding of MANIAC trees      | see further below                  |
+| Encode_zoomlevels(**first_zl**,0) | encoding of zoomlevels **first_zl** until 0             |
+
+
+The encoding of a series of zoomlevels happens by interleaving the channels in some way. This interleaving is either in the 'default order', or in a custom order. In any case, the following invariants must hold:
+
+* Zoomlevel _k_ of a channel can only be encoded after zoomlevel _k+1_ of that channel has already been encoded;
+* If channel 3 exists and **alpha_zero** is true, then zoomlevel _k_ of channel 0 (usually Luma) can only be encoded after zoomlevel _k_ of channel 3 (Alpha) has already been encoded;
+* Zoomlevel _k_ of channel 1 (usually Co) can only be encoded after zoomlevel _k_ of channel 0 (usually Luma) has been encoded;
+* Zoomlevel _k_ of channel 2 (usually Cg) can only be encoded after zoomlevel _k_ of channels 0 and 1 (Luma and Co) have been encoded;
+* If channel 4 (FrameLookback) exists: zoomlevel _k_ of any other channel (0,1,2, or 3) can only be encoded after zoomlevel _k_ of channel 4 has already been encoded.
+
+### Encode_zoomlevels(h,l)
+
+| Type                       | Description                        | Condition |
+|----------------------------|------------------------------------|-----------|
+| rac24(0,1)                 | Boolean: **default_order**         |           |
+| rac24(-1,2)                | Pixel predictors **pred[channel]** | repeat(**nb_channels**) |
+
+Repeat ** nb_channels * (h-l+1) ** times: (so once for every channel/zoomlevel)
+
+| Type                       | Description                        | Condition | Default value |
+|----------------------------|------------------------------------|-----------|---------------|
+| rac24(0,**nb_channels**-1) | Channel **c** to be encoded        | not **default_order** | given by default order |
+|                            | Zoomlevel **z** is implicit        |                       |             |
+| rac24(0,2)                 | Pixel predictor **p** to use       | **pred[c]** == -1     | **pred[c]** |
+| Encode_zl(**c**,**z**,**p**) | Encoding of the next zoomlevel of channel **c** | **range(c).min < range(c).max**  | |
+
+
+## Pixel encoding
+
+### Pixel predictors
+### Properties
+### Actual pixel encoding
+
+
 ## MANIAC tree encoding
 There is one tree per non-trivial channel (a channel is trivial if its range is a singleton or if it doesn't exist).
 The trees are encoded independently and in a recursive (depth-first) way, as follows:
@@ -116,8 +221,6 @@ The trees are encoded independently and in a recursive (depth-first) way, as fol
 | recursive encoding of right branch | where range[_property_].max = _test_value_   | not a leaf node |
 
 
-## Non-Interlaced
-## Interlaced
 ## Checksum
 
 | Type             | Description                       | Condition                 |
