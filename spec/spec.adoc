@@ -42,7 +42,8 @@ Also, the first chunk (which is always "FLIF") has no explicit chunk size.
 Chunk names are either 4 letters (4 bytes), or 1 byte with a value below 32.
 
 The convention of using upper and lower case letters is kept, but the meaning of the bits is slightly different.
-- First letter: uppercase=critical, lowercase=non-critical --> non-critical chunks can be stripped while keeping a valid file (it might be rendered differently though)
+
+- First letter: uppercase=critical, lowercase=non-critical -> non-critical chunks can be stripped while keeping a valid file (it might be rendered differently though)
 - Second letter: uppercase=public, lowercase=private
 - Third letter: uppercase=needed to correctly display the image (e.g. a color profile), lowercase=can be stripped safely without changing anything visually
 - Fourth letter: uppercase=safe to copy blindly (when editing the actual image data), lowercase=may depend on image data (e.g. contain a thumbnail)
@@ -95,7 +96,7 @@ rac24_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (incl
 |
 
 | rac24(0,1)
-| Flag: **has_custom_cutoff_and_alpha
+| Flag: **has_custom_cutoff_and_alpha**
 |
 |
 
@@ -204,17 +205,16 @@ In this example, the conditional ranges also change: e.g. **crange(1,2)** (the r
 If this encode method is used, then we start immediately with the encoding of the MANIAC trees (see below), followed by the encoding of the pixels. The order in which the pixels are encoded is described by the following nested loops:
 
 * For all channels: (in the order 4,3,0,1,2, skipping those that don't exist or have a singleton range)
-  * For all rows: (from 0 to **height**-1) :
-    * For all frames: (from 0 to **nb_frames**-1) :
-      * For all columns: (from 0 to **width**-1, or in case FrameShape is used, from begin[row] to end[row])
-        * Encode a pixel
-
+** For all rows: (from 0 to **height**-1) :
+*** For all frames: (from 0 to **nb_frames**-1) :
+**** For all columns: (from 0 to **width**-1, or in case FrameShape is used, from begin[row] to end[row])
+***** Encode a pixel
 
 ## Interlaced method
 
 For interlacing, we define the notion of _zoomlevels_. Zoomlevel 0 is the full image. Zoomlevel 1 are all the even-numbered rows of the image (counting from 0). Zoomlevel 2 are all the even-numbered columns of zoomlevel 1. In general: zoomlevel _2k+1_ are all the even-numbered rows of zoomlevel _2k_, and zoomlevel _2k+2_ are all the even-numbered columns of zoomlevel _2k+1_.
 
-In other words, every even-numbered zoomlevel _2k_ is a downsampled version of the image, at scale 1:_2^k_.
+In other words, every even-numbered zoomlevel _2k_ is a downsampled version of the image, at scale 1:__2^k__.
 
 We defined the 'maximum zoomlevel' **max_zl** of an image as the zoomlevel with the lowest number that consists of a single pixel. This is always the pixel in the top-left corner of the image (row 0, column 0). This pixel is always encoded first.
 
