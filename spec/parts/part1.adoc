@@ -1,0 +1,27 @@
+
+# Part 1: main header
+
+|===
+| Type             | Description                           | Value
+
+| 4 bytes          | Magic                                 | `"FLIF"`
+| 4 bits           | Interlacing, animation                | 3 = ni still; 4 = i still; 5 = ni anim; 6 = i anim
+| 4 bits           | Number of channels (**nb_channels**)  | 1 = Grayscale; 3 = RGB; 4 = RGBA
+| 1 byte           | Bytes per channel (**Bpc**)           | '0','1','2'   (`"0"`=custom)
+| varint           | Width                                 | **width**-1
+| varint           | Height                                | **height**-1
+| varint           | Number of frames (**nb_frames**)      | **nb_frames**-2  (only if animation)
+|===
+
+The fifth byte is an ASCII character that can be interpreted as follows:
+for non-interlaced still images: '1'=Grayscale, '3'=RGB, '4'=RGBA,
+for interlaced images add +0x10 (so 'A'=Grayscale, 'C'=RGB, 'D'=RGBA),
+for animations add +0x20 (so 'Q', 'S', 'T' for non-interlaced, 'a','c','d' for interlaced).
+
+Variable-size integer encoding (varint):
+  An unsigned integer (Big-Endian, MSB first) stored on a variable number of bytes.
+  All the bytes except the last one have a '1' as their first bit.
+  The unsigned integer is represented as the concatenation of the remaining 7 bit codewords.
+
+**nb_frames** is 1 for a still image, > 1 for an animation.
+
