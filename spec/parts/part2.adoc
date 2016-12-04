@@ -8,10 +8,10 @@ Chunk names are either 4 letters (4 bytes), or 1 byte with a value below 32.
 
 The convention of using upper and lower case letters is kept, but the meaning of the bits is slightly different.
 
-- First letter: uppercase=critical, lowercase=non-critical -> non-critical chunks can be stripped while keeping a valid file (it might be rendered differently though)
-- Second letter: uppercase=public, lowercase=private
-- Third letter: uppercase=needed to correctly display the image (e.g. a color profile), lowercase=can be stripped safely without changing anything visually
-- Fourth letter: uppercase=safe to copy blindly (when editing the actual image data), lowercase=may depend on image data (e.g. contain a thumbnail)
+- *First letter*: uppercase=critical, lowercase=non-critical -> non-critical chunks can be stripped while keeping a valid file (it might be rendered differently though). If it is `\0` there are no more following chunks.
+- *Second letter*: uppercase=public, lowercase=private
+- *Third letter*: uppercase=needed to correctly display the image (e.g. a color profile), lowercase=can be stripped safely without changing anything visually
+- *Fourth letter*: uppercase=safe to copy blindly (when editing the actual image data), lowercase=may depend on image data (e.g. contain a thumbnail)
 
 This optional part is a concatenation of chunks that each look like this:
 
