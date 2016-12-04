@@ -1,5 +1,15 @@
+= FLIF16 Specification
+Jon Sneyers <jon@cloudinary.com>; other contributors: add yourself here
+Work in progress
+:toc:
+:homepage: http://flif.info
 
-# Overview of the format
+The Free Lossless Image Format (FLIF) is a lossless image compression format.
+It supports grayscale, RGB and RGBA, with a color depth from 1 to 16 bits per channel.
+
+This document specifies the FLIF16 bitstream, as implemented by version 0.2 of the reference encoder (https://github.com/FLIF-hub/FLIF), which was released in September 2016.
+
+== Overview of the format
 
 A FLIF file consists of 4 parts, with increasingly complicated encoding methods:
 
