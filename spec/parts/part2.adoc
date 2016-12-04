@@ -1,5 +1,5 @@
 
-# Part 2: metadata
+== Part 2: metadata
 
 Chunks are defined similar to PNG chunks, except the chunk size is encoded with a variable number of bytes, and there is no chunk CRC.
 Also, the first chunk (which is always "FLIF") has no explicit chunk size.

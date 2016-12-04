@@ -1,7 +1,7 @@
 
-# Part 4: pixel data
+== Part 4: pixel data
 
-## Non-Interlaced method
+=== Non-Interlaced method
 
 If this encode method is used, then we start immediately with the encoding of the MANIAC trees (see below), followed by the encoding of the pixels. The order in which the pixels are encoded is described by the following nested loops:
 
@@ -11,7 +11,7 @@ If this encode method is used, then we start immediately with the encoding of th
 **** For all columns: (from 0 to **width**-1, or in case FrameShape is used, from begin[row] to end[row])
 ***** Encode a pixel
 
-## Interlaced method
+=== Interlaced method
 
 For interlacing, we define the notion of _zoomlevels_. Zoomlevel 0 is the full image. Zoomlevel 1 are all the even-numbered rows of the image (counting from 0). Zoomlevel 2 are all the even-numbered columns of zoomlevel 1. In general: zoomlevel _2k+1_ are all the even-numbered rows of zoomlevel _2k_, and zoomlevel _2k+2_ are all the even-numbered columns of zoomlevel _2k+1_.
 
@@ -43,7 +43,7 @@ The encoding of a series of zoomlevels happens by interleaving the channels in s
 * Zoomlevel _k_ of channel 2 (usually Cg) can only be encoded after zoomlevel _k_ of channels 0 and 1 (Luma and Co) have been encoded;
 * If channel 4 (FrameLookback) exists: zoomlevel _k_ of any other channel (0,1,2, or 3) can only be encoded after zoomlevel _k_ of channel 4 has already been encoded.
 
-### Encode_zoomlevels(h,l)
+==== Encode_zoomlevels(h,l)
 
 |===
 | Type                       | Description                        | Condition
@@ -78,14 +78,14 @@ Repeat ** nb_channels * (h-l+1) ** times: (so once for every channel/zoomlevel)
 |
 |===
 
-## Pixel encoding
+=== Pixel encoding
 
-### Pixel predictors
-### Properties
-### Actual pixel encoding
+==== Pixel predictors
+==== Properties
+==== Actual pixel encoding
 
 
-## MANIAC tree encoding
+=== MANIAC tree encoding
 There is one tree per non-trivial channel (a channel is trivial if its range is a singleton or if it doesn't exist).
 The trees are encoded independently and in a recursive (depth-first) way, as follows:
 
@@ -115,7 +115,7 @@ The trees are encoded independently and in a recursive (depth-first) way, as fol
 | not a leaf node
 |===
 
-## Checksum
+=== Checksum
 
 |===
 | Type             | Description                       | Condition

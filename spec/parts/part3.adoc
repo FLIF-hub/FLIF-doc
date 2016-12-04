@@ -1,5 +1,5 @@
 
-# Part 3: second header
+== Part 3: second header
 
 From here on, all values are encoded using arithmetic coding.
 
@@ -89,7 +89,7 @@ Channels are ordered as follows:
 |===
 
 
-## Transformations
+=== Transformations
 
 |===
 | Type             | Description
@@ -122,19 +122,20 @@ As a typical example, consider 8-bit RGBA to which the YCoCg transformation gets
 
 In this example, the conditional ranges also change: e.g. **crange(1,2)** (the range for Co given that Y=2) happens to be -7..7.
 
-### Transformation 0: ChannelCompact
-### Transformation 1: YCoCg
-### Transformation 2: reserved (unused)
-### Transformation 3: PermutePlanes
-### Transformation 4: Bounds
-### Transformation 5: PaletteAlpha
-### Transformation 6: Palette
-### Transformation 7: ColorBuckets
-### Transformation 8: reserved (unused)
-### Transformation 9: reserved (unused)
-### Transformation 10: DuplicateFrame
-### Transformation 11: FrameShape
-### Transformation 12: FrameLookback
-### Transformation 13: reserved (unused)
+
+==== Transformation 0: ChannelCompact
+==== Transformation 1: YCoCg
+==== Transformation 2: reserved (unused)
+==== Transformation 3: PermutePlanes
+==== Transformation 4: Bounds
+==== Transformation 5: PaletteAlpha
+==== Transformation 6: Palette
+==== Transformation 7: ColorBuckets
+==== Transformation 8: reserved (unused)
+==== Transformation 9: reserved (unused)
+==== Transformation 10: DuplicateFrame
+==== Transformation 11: FrameShape
+==== Transformation 12: FrameLookback
+==== Transformation 13: reserved (unused)
 
 
