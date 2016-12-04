@@ -11,11 +11,6 @@ rac24_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (incl
 |===
 | Type | Description | Condition | Default value
 
-| 1 byte
-| NUL byte (`"\0"`)
-|
-|
-
 | rac24(1,16)
 | Bits per pixel of the channels
 | **Bpc** == '0': repeat(**nb_channels**)
