@@ -1,7 +1,9 @@
 = FLIF16 Specification
 Jon Sneyers <jon@cloudinary.com>; other contributors: add yourself here
 Work in progress
-:toc:
+:toc: right
+:icons: font
+:source-highlighter: coderay
 :homepage: http://flif.info
 
 The Free Lossless Image Format (FLIF) is a lossless image compression format.

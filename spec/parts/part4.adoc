@@ -19,7 +19,7 @@ For interlacing, we define the notion of _zoomlevels_. Zoomlevel 0 is the full i
 
 In other words, every even-numbered zoomlevel _2k_ is a downsampled version of the image, at scale 1:__2^k__.
 
-We defined the 'maximum zoomlevel' **max_zl** of an image as the zoomlevel with the lowest number that consists of a single pixel. This is always the pixel in the top-left corner of the image (row 0, column 0). This pixel is always encoded first, as a special case.
+We define the 'maximum zoomlevel' **max_zl** of an image as the zoomlevel with the lowest number that consists of a single pixel. This is always the pixel in the top-left corner of the image (row 0, column 0). This pixel is always encoded first, as a special case.
 
 The zoomlevels are encoded from highest (most zoomed out) to lowest; in each zoomlevel, obviously only those pixels are encoded that haven't been encoded previously. So in an even-numbered zoomlevel, the odd-numbered rows are encoded, while in an odd-numbered zoomlevel, the odd-numbered columns are encoded.
 
@@ -103,7 +103,7 @@ Encode_zl(**c**,**z**,**p**) :
 
 .Design rationale: Animation loop nesting
 ****
-NOTE: Both in the interlaced and in the non-interlaced mode, the frames of an animation are
+Both in the interlaced and in the non-interlaced mode, the frames of an animation are
 interleaved at a relatively deep level of the nested loops.
 This means that progressive decoding of an animation does not result in the first few frames at full quality,
 but instead, you get all frames at reduced quality. In non-interlaced mode, early stages of progressive decoding
