@@ -1,18 +1,12 @@
 
 == Part 3: second header
 
-From here on, all values are encoded using arithmetic coding.
-
-rac24(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using the UniformSymbolCoder and a 24-bit RAC. This encoding is not context-adaptive, and every number in the interval gets a fixed chance (close to a uniform distribution, hence the name).
-rac24(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for rac24(0,2^_b_-1).
-
-rac24_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using the SimpleSymbolCoder and a 24-bit RAC, where the chance table is given by CONTEXT. This encoding is context-adaptive; numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance.
 
 |===
 | Type | Description | Condition | Default value
 
 | 1 byte
-| NUL byte (`"\0"`)
+| NUL byte (0x00), chunk name of a FLIF16 bitstream
 |
 |
 

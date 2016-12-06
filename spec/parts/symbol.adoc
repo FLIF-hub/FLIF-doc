@@ -1,0 +1,152 @@
+
+== Symbol encoding
+
+From here on, all values are encoded using arithmetic coding.
+
+rac24(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Uniform symbol coding (see below) and a 24-bit RAC. This encoding is not context-adaptive, and every number in the interval gets a fixed chance (close to a uniform distribution, hence the name).
+rac24(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for rac24(0,2^_b_-1).
+
+rac24_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Near-zero symbol coding (see below) and a 24-bit RAC, where the chance table is given by CONTEXT. This encoding is context-adaptive; numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance.
+
+=== Uniform Symbol Coding
+
+An integer encoded with Uniform symbol coding uses a series of 50% chance bits to recursively narrow down the input interval
+until it is a singleton. The following code describes how to decode such an integer:
+
+[source,c]
+----
+    // assumption: min <= max
+    int read_uniform_int(int min, int max) {
+        if (min == max) return min;
+
+        // split in [min..mid] [mid+1..max]
+        int med = min + (max-min)/2;
+
+        if (rac.read_bit()) {
+            return read_int(mid+1, max);
+        } else {
+            return read_int(min, mid);
+        }
+    }
+----
+
+There is no compression advantage of using a RAC to encode these 50% chance bits (just regular bits would be just as efficient),
+but it is convenient to use the RAC anyway to avoid having to mix the RAC bitstream with regular bits.
+
+For intervals of the form 0..2^_k_ this representation boils down to writing down the number as _k_ binary bits;
+for other intervals it can be slightly more concise than binary notation.
+
+This representation is used mostly for simple signaling, where context adaptation would be of little use.
+
+
+=== Near-zero symbol coding
+
+This is the representation used for the bulk of the data, including the pixel values. It is very efficient for values that
+are close to zero (e.g. well-predicted pixels).
+
+An integer encoded with Near-zero symbol coding uses a zero-sign-exponent-mantissa representation, where the exponent is represented
+in unary notation.
+Every bit position of this representation has its own RAC context (so their chances adapt separately); the exponent bits use different chances
+not just depending on their position but also depending on the sign.
+Chances are represented as 12-bit numbers (1..4095), where 1 means that the bit is very likely to be zero (it has 1/4096 chance of being one),
+while 4095 means that the bit is very likely to be one (the chance is 4095/4096).
+
+The chances are initialized as follows:
+
+|===
+| bit    | initial chance
+
+| ZERO   | 1000
+| SIGN   | 2048
+| EXP(0,_sign_) | 1000
+| EXP(1,_sign_) | 1200
+| EXP(2,_sign_) | 1500
+| EXP(3,_sign_) | 1750
+| EXP(4,_sign_) | 2000
+| EXP(5,_sign_) | 2300
+| EXP(6,_sign_) | 2800
+| EXP(7,_sign_) | 2400
+| EXP(8,_sign_) | 2300
+| EXP(9,_sign_) | 2048
+| EXP(_k_,_sign_), _k_ > 9 | 2048
+| MANT(0) | 1900
+| MANT(1) | 1850
+| MANT(2) | 1800
+| MANT(3) | 1750
+| MANT(4) | 1650
+| MANT(5) | 1600
+| MANT(6) | 1600
+| MANT(7) | 2048
+| MANT(_k_), _k_ > 7 | 2048
+|===
+
+The following code describes how to decode an integer in this representation:
+
+[source,c]
+----
+    // assumption: min <= 0 <= max
+    int read_nearzero_int(int min, int max) {
+
+        if (min == max) return min;
+
+        if (rac.read(ZERO)) return 0;
+
+        bool sign; // true = positive, false = negative
+        if (min < 0) {
+          if (max > 0) {
+            // only actually read the sign bit if both signs are possible
+            sign = rac.read(SIGN);
+          } else {
+            // max <= 0 and the number is not zero, so it is negative
+            sign = false;
+          }
+        } else {
+          // min >= 0 and the number is not zero, so it is positive
+          sign = true;
+        }
+
+
+        // highest possible absolute value
+        const int amax = (sign? max : -min);
+
+        // highest possible exponent
+        const int emax = ilog2(amax);
+
+        // exponent is represented in unary:
+        // a series of 1s terminated with a 0
+        // (the end 0 is dropped if e=emax)
+        int e;
+        for (e = 0 ; e < emax ; e++) {
+            if (rac.read(EXP(e,sign)) break;
+        }
+
+        // the first mantissa bit is always 1
+        int have = (1 << e);
+        // if all other mantissa bits are 1, then the total is have+left
+        int left = have-1;
+
+        // read mantissa bits from most-significant to least-significant
+        for (int pos = e; pos>0;) {
+            left >>= 1; pos--;
+            // if the bit is 1, then the value will be at least minabs1
+            int minabs1 = have | (1<<pos);
+            // if the bit is 0, then the value will be at most maxabs0
+            int maxabs0 = have | left;
+            if (minabs1 > amax) {
+                // 1-bit is impossible (would bump value above maximum),
+                // so assume the bit is 0 without reading it
+            } else if (maxabs0 >= 1) {
+                // 0-bit and 1-bit are both possible,
+                // so we read the bit and adjust what we have if it is a 1
+                if (rac.read(MANT(pos))) have = minabs1;
+            } else {
+                // 0-bit is impossible (would make the value zero),
+                // so assume the bit is 1 without reading it
+                have = minabs1;
+            }
+        }
+        return (sign ? have : -have);
+    }
+----
+
+

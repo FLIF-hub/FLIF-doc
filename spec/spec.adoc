@@ -23,7 +23,11 @@ include::parts/part1.adoc[]
 
 include::parts/part2.adoc[]
 
+include::parts/symbol.adoc[]
+
 include::parts/part3.adoc[]
+
+include::parts/maniac.adoc[]
 
 include::parts/part4.adoc[]
 

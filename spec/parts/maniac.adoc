@@ -1,0 +1,4 @@
+
+== MANIAC entropy coding
+
+todo
