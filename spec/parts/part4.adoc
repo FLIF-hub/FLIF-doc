@@ -5,11 +5,13 @@
 
 If this encode method is used, then we start immediately with the encoding of the MANIAC trees (see below), followed by the encoding of the pixels. The order in which the pixels are encoded is described by the following nested loops:
 
-* For all channels: (in the order 4,3,0,1,2, skipping those that don't exist or have a singleton range)
-** For all rows: (from 0 to **height**-1) :
-*** For all frames: (from 0 to **nb_frames**-1) :
-**** For all columns: (from 0 to **width**-1, or in case FrameShape is used, from begin[row] to end[row])
-***** Encode a pixel
+* For all channels _c_ : (in the order 4,3,0,1,2, skipping those that don't exist or have a singleton range)
+** For all rows _y_, i.e. for _y_ from 0 to **height**-1 :
+*** For all frames _f_ , i.e. for _f_ from 0 to **nb_frames**-1 :
+**** For all columns _x_, i.e. for _x_ from 0 to **width**-1 :
+***** Encode the pixel at location (_x_,_y_) in channel _c_ of frame _f_
+
+How the pixel is actually encoded is described below.
 
 === Interlaced method
 
@@ -17,7 +19,7 @@ For interlacing, we define the notion of _zoomlevels_. Zoomlevel 0 is the full i
 
 In other words, every even-numbered zoomlevel _2k_ is a downsampled version of the image, at scale 1:__2^k__.
 
-We defined the 'maximum zoomlevel' **max_zl** of an image as the zoomlevel with the lowest number that consists of a single pixel. This is always the pixel in the top-left corner of the image (row 0, column 0). This pixel is always encoded first.
+We defined the 'maximum zoomlevel' **max_zl** of an image as the zoomlevel with the lowest number that consists of a single pixel. This is always the pixel in the top-left corner of the image (row 0, column 0). This pixel is always encoded first, as a special case.
 
 The zoomlevels are encoded from highest (most zoomed out) to lowest; in each zoomlevel, obviously only those pixels are encoded that haven't been encoded previously. So in an even-numbered zoomlevel, the odd-numbered rows are encoded, while in an odd-numbered zoomlevel, the odd-numbered columns are encoded.
 
@@ -27,12 +29,13 @@ Then the MANIAC tree is encoded, and then the rest of the zoomlevels are encoded
 
 
 |===
-| Type                                         | Description
+| Type                                         | Description       | Condition
 
-| rac24(0..**max_zl**)                         | Number of the first MANIAC-encoded zoomlevel: **first_zl**
-| Encode_zoomlevels(**max_zl**,**first_zl**+1) | encoding of zoomlevels **max_zl** until **first_zl**+1
-| encoding of MANIAC trees                     | see further below
-| Encode_zoomlevels(**first_zl**,0)            | encoding of zoomlevels **first_zl** until 0
+| rac24(0..**max_zl**)                         | Number of the first MANIAC-encoded zoomlevel: **first_zl** |
+| rac24(range(_c_).min,range(_c_).max)         | pixel value of the top-left (0,0) pixel of channel _c_  | repeat(_c_ in 0..**nb_channels**-1)
+| Encode_zoomlevels(**max_zl**-1,**first_zl**+1) | encoding of zoomlevels **max_zl**-1 until **first_zl**+1  |
+| encoding of MANIAC trees                     | see further below    |
+| Encode_zoomlevels(**first_zl**,0)            | encoding of zoomlevels **first_zl** until 0  |
 |===
 
 The encoding of a series of zoomlevels happens by interleaving the channels in some way. This interleaving is either in the 'default order', or in a custom order. In any case, the following invariants must hold:
@@ -43,7 +46,11 @@ The encoding of a series of zoomlevels happens by interleaving the channels in s
 * Zoomlevel _k_ of channel 2 (usually Cg) can only be encoded after zoomlevel _k_ of channels 0 and 1 (Luma and Co) have been encoded;
 * If channel 4 (FrameLookback) exists: zoomlevel _k_ of any other channel (0,1,2, or 3) can only be encoded after zoomlevel _k_ of channel 4 has already been encoded.
 
+TODO: describe default order
+
 ==== Encode_zoomlevels(h,l)
+
+There are three different pixel predictors in interlaced mode (numbered 0, 1, 2). For each channel, either the same predictor is used in all zoomlevels h to l (in that case the predictor number is encoded only once), or a different predictor can be picked for each zoomlevel (in that case the number -1 is encoded, and the actual predictor number is encoded at the beginning of each zoomlevel).
 
 |===
 | Type                       | Description                        | Condition
@@ -52,7 +59,8 @@ The encoding of a series of zoomlevels happens by interleaving the channels in s
 | rac24(-1,2)                | Pixel predictors **pred[channel]** | repeat(**nb_channels**)
 |===
 
-Repeat ** nb_channels * (h-l+1) ** times: (so once for every channel/zoomlevel)
+
+Repeat ** nb_channels * (h-l+1) ** times: (once for every channel/zoomlevel in the range from **h** to **l**)
 
 |===
 | Type | Description | Condition | Default value
@@ -78,11 +86,67 @@ Repeat ** nb_channels * (h-l+1) ** times: (so once for every channel/zoomlevel)
 |
 |===
 
+The encoding of a single zoomlevel/channel combination is defined as follows:
+
+Encode_zl(**c**,**z**,**p**) :
+
+* If **z** is even (a 'horizontal' zoomlevel)
+** For all _odd_ rows _y_ of zoomlevel **z**, i.e. for _y_ from 1 to (**height**-1)/(2^(**z**/2)) in steps of 2 :
+*** For all frames _f_, i.e. for _f_ from 0 to **nb_frames**-1 :
+**** For all columns _x_ of zoomlevel **z**, i.e. for _x_ from 0 to (**width**-1)/(2^(**z**/2)) :
+***** Encode the pixel at location (_x_,_y_) in zoomlevel **z** of channel **c** of frame _f_, using predictor **p**
+* Else (if **z** is odd, that is, a 'vertical' zoomlevel)
+** For all rows _y_ of zoomlevel **z**, i.e. for _y_ from 0 to (**height**-1)/(2^(**z+1**/2)) :
+*** For all frames _f_, i.e. for _f_ from 0 to **nb_frames**-1 :
+**** For all _odd_ columns _x_ of zoomlevel **z**, i.e. for _x_ from 1 to (**width**-1)/(2^(**z**/2)) with steps of 2 :
+***** Encode the pixel at location (_x_,_y_) in zoomlevel **z** of channel **c** of frame _f_, using predictor **p**
+
+.Design rationale: Animation loop nesting
+****
+NOTE: Both in the interlaced and in the non-interlaced mode, the frames of an animation are
+interleaved at a relatively deep level of the nested loops.
+This means that progressive decoding of an animation does not result in the first few frames at full quality,
+but instead, you get all frames at reduced quality. In non-interlaced mode, early stages of progressive decoding
+will give you the top portion of all frames, only in grayscale (assuming the YCoCg color transformation).
+In interlaced mode, progressive decoding will give you a blurry / low resolution preview of the full animation.
+****
+
 === Pixel encoding
 
+The overall encoding mechanism of a pixel value _v_ is as follows:
+
+* The value is predicted, resulting in a predicted value _guess_
+* The range of possible values is computed as accurately as possible using **crange(c,...)**, resulting in _min_ and _max_
+** If needed, _guess_ is adjusted to be in this range
+* The local context of the pixel is computed as a MANIAC property vector _pvec_
+* The number that actually gets encoded is the difference between the actual and predicted value _v_ - _guess_
+** If the prediction is any good, these numbers tend to be close to zero
+** To decode the value: rac24_MANIAC~**c**,_pvec_~(_min_-_guess_, _max_-_guess_) + _guess_
+
+The above mechanism is the same in interlaced and non-interlaced mode and for all channels; however the predictor (_guess_) and the layout of property vector (_pvec_) depends on the mode and the channel.
+
+==== Skipped pixels
+
+Some pixels are not encoded at all. There are three such cases:
+
+1. If the **alpha_zero** flag is true, then 'invisible pixels' (pixels with Alpha value zero) semantically have undefined RGB values. So if the pixel value in channel 3 (Alpha) is equal to 0, then the pixel values in channels 0, 1, 2 (RGB, or e.g. YCoCg after transformations) are not encoded. However, the decoder does need to set the values of these pixels to _something_, since those 'invisible' values might very well be used in predictors or properties of neighboring _visible_ pixels. It sets these values simply to the predicted value. In interlaced mode, the predictor to use for that is called the 'invisible pixel predictor' (see part 3 above).
+2. In animations which use the FrameShape transformation, from the second frame onwards, all rows have a 'begin' and 'end' column. Pixels before the begin and after the end are not encoded; their value is equal to the corresponding pixel value from the previous frame.
+3. In animations which use the FrameLookback transformation, channel 4 (Lookback) refers to past frames. If the value in channel 4 is not zero but some number _k_ > 0, then all other channels are not encoded for that pixel. The pixel value for channels 0,1,2,3 is equal to the corresponding pixel value from _k_ frames ago.
+
+TIP: As an optimization, it is safe to simply skip pixels from a constant channel, that is, a channel which has a singleton range. Technically, one could argue that they are actually encoded, but for each pixel value _v_, we have _v_ = _min_ = _max_ = _guess_, which means the symbol encoding doesn't use any bits.
+
 ==== Pixel predictors
+
+===== Non-interlaced mode
+
+===== Interlaced mode
+
 ==== Properties
-==== Actual pixel encoding
+
+===== Non-interlaced mode
+
+===== Interlaced mode
+
 
 
 === MANIAC tree encoding
