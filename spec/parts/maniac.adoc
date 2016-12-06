@@ -1,4 +1,28 @@
 
 == MANIAC entropy coding
 
-todo
+Meta-Adaptive Near-zero Integer Arithmetic Coding (MANIAC) is a variant of https://en.wikipedia.org/wiki/Context-adaptive_binary_arithmetic_coding[Context-adaptive binary arithmetic coding] (CABAC) in which not just the probability model is adaptive (based on local context), but also the context model _itself_ is adaptive. In this sense, it is _meta-adaptive_.
+
+The symbol encoding itself corresponds to the Near-zero symbol coding method described above. The chance table (the chances for ZERO, SIGN, EXP(p,s) and MANT(p)) depends on the local context; these chances adapt each time a symbol is encoded or decoded.
+
+The local context is described as a vector of integer numbers, which are called _properties_. To determine which chance table to use, a decision tree is used. This tree is called a _MANIAC tree_. The full structure of the tree is known in advance by the decoder (it is encoded in part 4 of the bitstream, see below). However, at decode time, the tree is initially only partially used (only the root node at the beginning), and it 'grows' to eventually become the full tree.
+
+The inner nodes of a MANIAC tree contain a test of the form `property[k] > value`. If this test evaluates to `true`, then the left branch is taken, otherwise the right branch is taken. Eventually a leaf node is reached.
+
+The leaf nodes of a MANIAC tree contain a counter and a chance table. This chance table is used in the Near-zero symbol coding. The counter gets decremented each time the leaf node is reached. When it reaches zero, the tree 'grows' and the leaf node becomes an inner node (a decision node). Its chance table gets duplicated and becomes the chance table of its two branch nodes.
+
+
+=== Design rationale
+
+In context-adaptive binary arithmetic coding, it is hard to define a good context model;
+in particular, to get the number of contexts 'just right'.
+Using too many contexts hurts compression because context adaptation is limited
+(few encoded symbols per context).
+With too few contexts, compression also suffers
+since symbols with different local context properties end up in the same context.
+Also, when the contexts are defined statically,
+a lot of the contexts are actually not used at all since the corresponding
+combination of properties simply does not occur in the source image.
+
+MANIAC encoding solves this problem using meta-adaptation. The number of contexts (i.e. the number of leaf nodes in the MANIAC tree) can be image-dependent. Moreover, because the tree is 'grown' as more and more symbols are encoded (using the counters), the number of contexts is not static, but it also grows during encoding. This means that you can have fast early adaptation (because there are only a small number of contexts), which will ensure that the chances converge quickly to a rough distribution, while you can also have a very fine-grained adaptation later on, with as many contexts as needed to represent the influence of local properties on the probability distributions.
+
