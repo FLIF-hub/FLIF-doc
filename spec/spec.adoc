@@ -8,6 +8,10 @@ Work in progress
 
 The Free Lossless Image Format (FLIF) is a lossless image compression format.
 It supports grayscale, RGB and RGBA, with a color depth from 1 to 16 bits per channel.
+Both still images and animations are supported.
+FLIF can handle sparse-color images (e.g. 256 color palettes) effectively.
+It has an interlaced and a non-interlaced mode; unlike PNG, interlacing usually does not come with worse compression.
+In terms of compression, FLIF usually outperforms other lossless compression formats like PNG, lossless WebP, BPG, JPEG 2000, JPEG XR, JPEG-LS, APNG, MNG, or GIF.
 
 This document specifies the FLIF16 bitstream, as implemented by version 0.2 of the reference encoder (https://github.com/FLIF-hub/FLIF), which was released in September 2016.
 
