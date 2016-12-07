@@ -32,3 +32,13 @@ Future (non-backwards compatible) revisions of the FLIF format will use a differ
 If a decoder encounters an unknown optional chunk, it should proceed decoding (optionally it can produce a warning),
 as long as the chunk is non-critical.
 If a decoder encounters an unknown non-optional chunk, it should fail and produce an error message.
+
+The following optional chunks are defined:
+
+|===
+| Chunk name      | Description           | Content (after DEFLATE-decompression)
+
+| iCCP            | ICC color profile     | raw ICC color profile data
+| eXif            | Exif metadata         | `"Exif\0\0"` header followed immediately by a TIFF header and the EXIF data
+| eXmp            | XMP metadata          | XMP contained within a read-only xpacket with no padding
+|===
