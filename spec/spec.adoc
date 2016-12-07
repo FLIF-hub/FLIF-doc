@@ -25,6 +25,11 @@ A FLIF file consists of 4 parts, with increasingly complicated encoding methods:
 4. The actual pixel data. This information is encoded using MANIAC entropy coding.
 
 
+== Notational conventions
+
+We use '/' to denote integer division.
+
+
 include::parts/part1.adoc[]
 
 include::parts/part2.adoc[]

@@ -1,0 +1,91 @@
+
+==== Transformation 0: ChannelCompact
+
+The ChannelCompact transformation looks at each channel independently, and reduces its range
+by eliminating values that do not actually occur in the image.
+
+To be able to reconstruct the original values, the mapping from the reduced range to the original
+range is encoded. Near-zero symbol coding is used, with a single context which we'll call A.
+
+The information is encoded as follows:
+
+* For each channel **c** :
+** **new_range(c).max** = nz_int_A(0,**orig_range(c).max**-**orig_range(c).max**)
+** **min** = **orig_range(c).min**
+** For **i** = 0..**new_range(c).max**-1 :
+*** **decompacted(i)** = **min** + nz_int_A(0, **orig_range(c).max**-**min**+**new_range(c).max**-**i**)
+*** **min** = **decompacted(i)**+1
+
+The effect of this transformation is as follows:
+
+* **new_range(c).min = new_crange(c,...).min = 0**
+* **new_range(c).max = new_crange(c,...).max** is explicitly encoded
+* **new_snap** is the default snap function (simple clamping)
+
+To reverse the transformation (after decoding the pixel values) :
+
+* For each channel **c** :
+** For every pixel value **v** :
+*** Set **v** = **decompacted(v)**
+
+
+
+==== Transformation 1: YCoCg
+
+The YCoCg transformation converts the colorspace from RGB to YCoCg.
+No information has to be encoded for this (besides the identifier of the transformation).
+
+The transformation only affects the first three channels (0,1,2).
+
+Define _origmax4_ to be equal to max(**orig_range(0).max**,**orig_range(1).max**,**orig_range(2).max**)/4+1
+and _newmax_ to be equal to 4 * (_origmax4_) - 1.
+In the most common case where the three channels have the range 0..255, this evaluates to _origmax4_ = 64 and _newmax_ = 255.
+
+|===
+| Channel number **c** | Original meaning | New meaning        | **new_range(c)**
+
+| 0                    | Red              | Luma (Y)           | 0.._newmax_
+| 1                    | Green            | Chroma orange (Co) | -_newmax_.._newmax_
+| 2                    | Blue             | Chroma green (Cg)  | -_newmax_.._newmax_
+|===
+
+
+The conditional range function is updated as follows:
+
+* **new_crange(0)** = **new_range(0)**
+* **new_crange(1,_yval_).min** =
+[horizontal]
+ -3 + 4 * _yval_        :: if _yval_ < _origmax4_ - 1
+ 4 * (_yval_-_newmax_)  :: if _yval_ > 3 * _origmax4_ - 1
+ -_newmax_              :: otherwise
+* **new_crange(1,_yval_).max** =
+[horizontal]
+ 3 + 4 * _yval_         :: if _yval_ < _origmax4_ - 1
+ 4 * (_newmax_-_yval_)  :: if _yval_ > 3 * _origmax4_ - 1
+ _newmax_               :: otherwise
+* **new_crange(2,_yval_,_coval_).min** =
+[horizontal]
+ -2 - 2 * _yval_        :: if _yval_ < _origmax4_ - 1
+ -2 * (_newmax_-_yval_) + 2 * ((abs(_coval_)+1)/2)  :: if _yval_ > 3 * _origmax4_ - 1
+ min(2 * _yval_ + 1, 2 * _newmax_ - 2 * _yval_ - 2 * ((abs(_coval_)+1)/2))      :: otherwise
+* **new_crange(2,_yval_,_coval_).max** =
+[horizontal]
+ 1 + 2 * _yval_ - 2 * (abs(_coval_)/2)        :: if _yval_ < _origmax4_ - 1
+ 2 * (_newmax_-_yval_)                        :: if _yval_ > 3 * _origmax4_ - 1
+ min(2 * (_yval_- _newmax_), - 2 * _yval_ - 1 + 2* (abs(_coval_)/2))            :: otherwise
+
+
+==== Transformation 2: reserved (unused)
+==== Transformation 3: PermutePlanes
+==== Transformation 4: Bounds
+==== Transformation 5: PaletteAlpha
+==== Transformation 6: Palette
+==== Transformation 7: ColorBuckets
+==== Transformation 8: reserved (unused)
+==== Transformation 9: reserved (unused)
+==== Transformation 10: DuplicateFrame
+==== Transformation 11: FrameShape
+==== Transformation 12: FrameLookback
+==== Transformation 13: reserved (unused)
+
+

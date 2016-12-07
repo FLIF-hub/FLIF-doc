@@ -10,42 +10,42 @@
 |
 |
 
-| rac24(1,16)
+| uni_int(1,16)
 | Bits per pixel of the channels
 | **Bpc** == '0': repeat(**nb_channels**)
 | 8 if **Bpc** == '1', 16 if **Bpc** == '2'
 
-| rac24(0,1)
+| uni_int(0,1)
 | Flag: **alpha_zero**
 | **nb_channels** > 3
 | 0
 
-| rac24(0,100)
+| uni_int(0,100)
 | Number of loops
 | **nb_frames** > 1
 |
 
-| rac24(0,60_000)
+| uni_int(0,60_000)
 | Frame delay in ms
 | **nb_frames** > 1: repeat(**nb_frames**)
 |
 
-| rac24(0,1)
+| uni_int(0,1)
 | Flag: **has_custom_cutoff_and_alpha**
 |
 |
 
-| rac24(1,128)
+| uni_int(1,128)
 | **cutoff**
 | **has_custom_cutoff_and_alpha**
 | 2
 
-| rac24(2,128)
+| uni_int(2,128)
 | **alpha divisor**
 | **has_custom_cutoff_and_alpha**
 | 19
 
-| rac24(0,1)
+| uni_int(0,1)
 | Flag: **has_custom_bitchance**
 | **has_custom_cutoff_and_alpha**
 | 0
@@ -60,12 +60,12 @@
 |
 |
 
-| rac24(1) = 0
+| uni_int(1) = 0
 | Indicator bit: done with transformations
 |
 |
 
-| rac24(0,2)
+| uni_int(0,2)
 | Invisible pixel predictor
 | **alpha_zero** && interlaced && alpha range includes zero
 |
@@ -85,11 +85,13 @@ Channels are ordered as follows:
 
 === Transformations
 
+For each transformation:
+
 |===
 | Type             | Description
 
-| rac24(1) = 1     | Indicator bit: not done yet
-| rac24(0,13)      | Transformation identifier
+| uni_int(1) = 1   | Indicator bit: not done yet
+| uni_int(0,13)    | Transformation identifier
 | variable         | Transformation data (depends on transformation)
 |===
 
@@ -101,8 +103,19 @@ Transformations serve two main purposes:
 2. to keep track of the range of actually occuring pixel values, in order to narrow it down.
 
 Initially, pixel values are assumed to be in the range 0..2^(bit_depth); this range can be modified by transformations.
-We'll use **range(_channel_).min** and **range(_channel_).max** to denote the global minimum and maximum value of a particular channel. We also use a potentially more accurate (narrow) conditional range **crange(_channel_,_values_)** to denote the range of a pixel value in channel **_channel_**, _given that the pixel values in previously encoded channels are_ **_values_**. Initially, the conditional ranges are simply equal to the global range, but transformations might change that.
+We'll use **range(_channel_).min** and **range(_channel_).max** to denote the global minimum and maximum value of a particular channel.
 
+We also use a potentially more accurate (narrow) conditional range **crange(_channel_,_values_)** to denote
+the range of a pixel value in channel **_channel_**, _given that the pixel values in previously encoded channels are_ **_values_**.
+Initially, the conditional ranges are simply equal to the global range, but transformations might change that.
+
+Finally, we define a function **snap(_channel_,_values_,_x_)** which given a pixel value **_x_** for channel **_channel_**
+and pixel values **_values_** in previously encoded channels, returns a 'valid' value as close as possible to **_x_**.
+Usually, **snap(_channel_,_values_,_x_)** simply clamps **_x_** to the conditional range **crange(_channel_,_values_)**,
+but the ColorBuckets transformation changes that behavior.
+
+.Example
+****
 As a typical example, consider 8-bit RGBA to which the YCoCg transformation gets applied:
 
 |===
@@ -115,21 +128,14 @@ As a typical example, consider 8-bit RGBA to which the YCoCg transformation gets
 |===
 
 In this example, the conditional ranges also change: e.g. **crange(1,2)** (the range for Co given that Y=2) happens to be -7..7.
+****
+
+In the following descriptions of transformations, we use **orig_range**, **orig_crange**, **orig_snap** to denote
+the original ranges and snap function (the initial ones, or the ones resulting from the previous transformation in the chain).
+We use **new_range**, **new_crange**, **new_snap** to denote the updated ranges and snap function.
+
+In part 4 we will use **range**, **crange** and **snap** to denote the final ranges and snap functions, i.e. after applying all
+transformations.
 
 
-==== Transformation 0: ChannelCompact
-==== Transformation 1: YCoCg
-==== Transformation 2: reserved (unused)
-==== Transformation 3: PermutePlanes
-==== Transformation 4: Bounds
-==== Transformation 5: PaletteAlpha
-==== Transformation 6: Palette
-==== Transformation 7: ColorBuckets
-==== Transformation 8: reserved (unused)
-==== Transformation 9: reserved (unused)
-==== Transformation 10: DuplicateFrame
-==== Transformation 11: FrameShape
-==== Transformation 12: FrameLookback
-==== Transformation 13: reserved (unused)
-
-
+include::transformations.adoc[]

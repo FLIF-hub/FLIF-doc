@@ -29,13 +29,13 @@ Then the MANIAC tree is encoded, and then the rest of the zoomlevels are encoded
 
 
 |===
-| Type                                         | Description       | Condition
+| Type                                           | Description       | Condition
 
-| rac24(0..**max_zl**)                         | Number of the first MANIAC-encoded zoomlevel: **first_zl** |
-| rac24(range(_c_).min,range(_c_).max)         | pixel value of the top-left (0,0) pixel of channel _c_  | repeat(_c_ in 0..**nb_channels**-1)
+| uni_int(0..**max_zl**)                         | Number of the first MANIAC-encoded zoomlevel: **first_zl** |
+| uni_int(range(_c_).min,range(_c_).max)         | pixel value of the top-left (0,0) pixel of channel _c_  | repeat(_c_ in 0..**nb_channels**-1)
 | Encode_zoomlevels(**max_zl**-1,**first_zl**+1) | encoding of zoomlevels **max_zl**-1 until **first_zl**+1  |
-| encoding of MANIAC trees                     | see further below    |
-| Encode_zoomlevels(**first_zl**,0)            | encoding of zoomlevels **first_zl** until 0  |
+| encoding of MANIAC trees                       | see further below    |
+| Encode_zoomlevels(**first_zl**,0)              | encoding of zoomlevels **first_zl** until 0  |
 |===
 
 The encoding of a series of zoomlevels happens by interleaving the channels in some way. This interleaving is either in the 'default order', or in a custom order. In any case, the following invariants must hold:
@@ -55,8 +55,8 @@ There are three different pixel predictors in interlaced mode (numbered 0, 1, 2)
 |===
 | Type                       | Description                        | Condition
 
-| rac24(0,1)                 | Boolean: **default_order**         |
-| rac24(-1,2)                | Pixel predictors **pred[channel]** | repeat(**nb_channels**)
+| uni_int(0,1)               | Boolean: **default_order**         |
+| uni_int(-1,2)              | Pixel predictors **pred[channel]** | repeat(**nb_channels**)
 |===
 
 
@@ -65,7 +65,7 @@ Repeat ** nb_channels * (h-l+1) ** times: (once for every channel/zoomlevel in t
 |===
 | Type | Description | Condition | Default value
 
-| rac24(0,**nb_channels**-1)
+| uni_int(0,**nb_channels**-1)
 | Channel **c** to be encoded
 | not **default_order**
 | given by default order
@@ -75,7 +75,7 @@ Repeat ** nb_channels * (h-l+1) ** times: (once for every channel/zoomlevel in t
 |
 |
 
-| rac24(0,2)
+| uni_int(0,2)
 | Pixel predictor **p** to use
 | **pred[c]** == -1
 | **pred[c]**
@@ -121,7 +121,7 @@ The overall encoding mechanism of a pixel value _v_ is as follows:
 * The local context of the pixel is computed as a MANIAC property vector _pvec_
 * The number that actually gets encoded is the difference between the actual and predicted value _v_ - _guess_
 ** If the prediction is any good, these numbers tend to be close to zero
-** To decode the value: rac24_MANIAC~**c**,_pvec_~(_min_-_guess_, _max_-_guess_) + _guess_
+** To decode the value: nz_int_MANIAC~**c**,_pvec_~(_min_-_guess_, _max_-_guess_) + _guess_
 
 The above mechanism is the same in interlaced and non-interlaced mode and for all channels; however the predictor (_guess_) and the layout of property vector (_pvec_) depends on the mode and the channel.
 
@@ -151,40 +151,53 @@ TIP: As an optimization, it is safe to simply skip pixels from a constant channe
 
 === MANIAC tree encoding
 There is one tree per non-trivial channel (a channel is trivial if its range is a singleton or if it doesn't exist).
-The trees are encoded independently and in a recursive (depth-first) way, as follows:
+The trees are encoded one after another and in a recursive (depth-first) way, as follows:
 
-**nb_properties** depends on the channel, the number of channels, and the encoding method (interlaced or non-interlaced).
+**nb_properties** depends on the channel, the number of channels, and the encoding method (interlaced or non-interlaced),
+as specified above. The range of each property is maintained during tree traversal. The initial property ranges
+**prange[_property_]** are defined above; these are narrowed down when going to a deeper node in the tree.
+
+For each channel _c_, three different contexts are used: we'll just call them A~_c_~, B~_c_~ and C~_c_~.
 
 |===
 | Type | Description | Condition
 
-| rac24_A(0,**nb_properties**)
+| nz_int_A~_c_~(0,**nb_properties**)
 | 0=leaf node, > 0: _property_+1
 |
 
-| rac24_B(1,512)
+| nz_int_B~_c_~(1,512)
 | node counter
 | not a leaf node
 
-| rac24_C(range[_property_].min,range[_property_].max-1)
+| nz_int_C~_c_~(**prange[_property_].min**,**prange[_property_].max**-1)
 | _test_value_
 | not a leaf node
 
 | recursive encoding of left branch
-| where range[_property_].min = _test_value_+1
+| where **prange[_property_].min** = _test_value_+1
 | not a leaf node
 
 | recursive encoding of right branch
-| where range[_property_].max = _test_value_
+| where **prange[_property_].max** = _test_value_
 | not a leaf node
 |===
 
+
+From this description, the MANIAC trees can be reconstructed. Leaf nodes have a counter value that is effectively infinity
+(they can never be turned into a decision node).
+
+
 === Checksum
+
+At the very end of the bitstream, there is an optional checksum to verify the integrity of the file.
+
+TODO: describe how the checksum is computed
 
 |===
 | Type             | Description                       | Condition
 
-| rac24(1)         | Boolean: **have_checksum**            |
-| rac24(16)        | Most significant 16 bits of checksum  | **have_checksum**
-| rac24(16)        | Least significant 16 bits of checksum | **have_checksum**
+| uni_int(1)       | Boolean: **have_checksum**            |
+| uni_int(16)      | Most significant 16 bits of checksum  | **have_checksum**
+| uni_int(16)      | Least significant 16 bits of checksum | **have_checksum**
 |===

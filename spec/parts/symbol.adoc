@@ -3,10 +3,10 @@
 
 From here on, all values are encoded using arithmetic coding.
 
-rac24(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Uniform symbol coding (see below) and a 24-bit RAC. This encoding is not context-adaptive, and every number in the interval gets a fixed chance (close to a uniform distribution, hence the name).
-rac24(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for rac24(0,2^_b_-1).
+uni_int(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Uniform symbol coding (see below) and a 24-bit RAC. This encoding is not context-adaptive, and every number in the interval gets a fixed chance (close to a uniform distribution, hence the name).
+uni_int(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for rac24(0,2^_b_-1).
 
-rac24_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Near-zero symbol coding (see below) and a 24-bit RAC, where the chance table is given by CONTEXT. This encoding is context-adaptive; numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance.
+nz_int_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Near-zero symbol coding (see below) and a 24-bit RAC, where the chance table is given by CONTEXT. This encoding is context-adaptive; numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance.
 
 === Uniform Symbol Coding
 
@@ -23,9 +23,9 @@ until it is a singleton. The following code describes how to decode such an inte
         int med = min + (max-min)/2;
 
         if (rac.read_bit()) {
-            return read_int(mid+1, max);
+            return read_uniform_int(mid+1, max);
         } else {
-            return read_int(min, mid);
+            return read_uniform_int(min, mid);
         }
     }
 ----
@@ -105,15 +105,13 @@ The following code describes how to decode an integer in this representation:
           sign = true;
         }
 
-
         // highest possible absolute value
         const int amax = (sign? max : -min);
 
         // highest possible exponent
         const int emax = ilog2(amax);
 
-        // exponent is represented in unary:
-        // a series of 1s terminated with a 0
+        // exponent is represented in unary: a series of 1s followed by 0
         // (the end 0 is dropped if e=emax)
         int e;
         for (e = 0 ; e < emax ; e++) {
