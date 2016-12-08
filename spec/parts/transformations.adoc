@@ -81,9 +81,17 @@ to an actual color. In particular, the range for Co and Cg is much smaller for n
 near-white colors than for intermediate luma values:
 
 video::-v-xoKZBnhI[youtube,opts="modest",width=512,height=512]
+(Download the above animation losslessly:
+link:illustrations/YCoCg.webp[WebP (847K)],
+link:illustrations/YCoCg.apng[APNG (938K)],
+link:illustrations/YCoCg.flif[FLIF (90K)];
+or lossy:
+link:illustrations/YCoCg.gif[GIF (7024K)],
+link:illustrations/YCoCg.mp4[MP4 (235K)])
 
-For this reason, the conditional range function **crange** is updated to reflect this.
-The conditional range function is updated as follows:
+
+The conditional range function **crange** is updated to reflect this.
+It is updated as follows:
 
 * **new_crange(0)** = **new_range(0)**
 * **new_crange(1,_yval_).min** =
