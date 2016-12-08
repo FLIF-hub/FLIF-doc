@@ -83,6 +83,7 @@ Channels are ordered as follows:
 |===
 
 
+[discrete]
 === Transformations
 
 For each transformation:
@@ -137,5 +138,5 @@ We use **new_range**, **new_crange**, **new_snap** to denote the updated ranges 
 In part 4 we will use **range**, **crange** and **snap** to denote the final ranges and snap functions, i.e. after applying all
 transformations.
 
+We will now describe the transformations and their encoding in more detail.
 
-include::transformations.adoc[]

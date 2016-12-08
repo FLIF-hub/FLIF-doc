@@ -38,6 +38,8 @@ include::parts/symbol.adoc[]
 
 include::parts/part3.adoc[]
 
+include::parts/transformations.adoc[]
+
 include::parts/maniac.adoc[]
 
 include::parts/part4.adoc[]

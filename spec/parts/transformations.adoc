@@ -1,5 +1,5 @@
 
-==== Transformation 0: ChannelCompact
+=== Transformation 0: ChannelCompact
 
 The ChannelCompact transformation looks at each channel independently, and reduces its range
 by eliminating values that do not actually occur in the image.
@@ -30,12 +30,38 @@ To reverse the transformation (after decoding the pixel values) :
 
 
 
-==== Transformation 1: YCoCg
+=== Transformation 1: YCoCg
 
 The YCoCg transformation converts the colorspace from RGB to YCoCg.
 No information has to be encoded for this (besides the identifier of the transformation).
 
 The transformation only affects the first three channels (0,1,2).
+
+
+==== Pixel transformation
+
+|===
+| Channel  | Original meaning | New meaning        | Forward transform        | Reverse transform
+
+| 0        | Red \(R)         | Luma (Y)           | Y = (((R+B)>>1) + G)>>1  | R = Co + Y + ((1-Cg)>>1) - (Co>>1)
+| 1        | Green (G)        | Chroma orange (Co) | Co = R - B               | G = Y - ((-Cg)>>1)
+| 2        | Blue (B)         | Chroma green (Cg)  | Cg = G - ((R+B)>>1)      | B = Y + ((1-Cg)>>1) - (Co>>1)
+|===
+
+IMPORTANT: >>1 denotes arithmetic right shift, which corresponds to dividing by two *rounding down*.
+For positive integers this is the same as /2, but for negative integers it is not, e.g. -1 / 2 = 0 while -1 >> 1 = -1.
+
+Luma (Y) corresponds to roughly 50% green, 25% red, 25% blue. Chroma orange (Co) is positive for colors near orange (red, orange, yellow),
+and negative for colors near blue. Chroma green (Cg) is positive for colors near green and negative for colors near purple.
+
+NOTE: The YCoCg transformation tends to decorrelate the channels, which helps to improve compression.
+For example, for grayscale images, i.e. images where R=G=B, the result of the YCoCg transform is Y=R (=G=B), Co=Cg=0.
+Human perception is more sensitive to luma than it is to chroma. For this reason, in interlaced mode,
+the default zoomlevel/channel ordering (see below) gives priority to the luma channel; this results in
+partial decodes (progressive previews) which are effectively chroma subsampled.
+
+
+==== New ranges
 
 Define _origmax4_ to be equal to max(**orig_range(0).max**,**orig_range(1).max**,**orig_range(2).max**)/4+1
 and _newmax_ to be equal to 4 * (_origmax4_) - 1.
@@ -44,12 +70,19 @@ In the most common case where the three channels have the range 0..255, this eva
 |===
 | Channel number **c** | Original meaning | New meaning        | **new_range(c)**
 
-| 0                    | Red              | Luma (Y)           | 0.._newmax_
-| 1                    | Green            | Chroma orange (Co) | -_newmax_.._newmax_
-| 2                    | Blue             | Chroma green (Cg)  | -_newmax_.._newmax_
+| 0                    | Red \(R)         | Luma (Y)           | 0.._newmax_
+| 1                    | Green (G)        | Chroma orange (Co) | -_newmax_.._newmax_
+| 2                    | Blue (B)         | Chroma green (Cg)  | -_newmax_.._newmax_
 |===
 
 
+Unlike the RGB color space, not every coordinate in the YCoCg color space corresponds
+to an actual color. In particular, the range for Co and Cg is much smaller for near-black and
+near-white colors than for intermediate luma values:
+
+video::-v-xoKZBnhI[youtube,opts="modest",width=512,height=512]
+
+For this reason, the conditional range function **crange** is updated to reflect this.
 The conditional range function is updated as follows:
 
 * **new_crange(0)** = **new_range(0)**
@@ -75,17 +108,25 @@ The conditional range function is updated as follows:
  min(2 * (_yval_- _newmax_), - 2 * _yval_ - 1 + 2* (abs(_coval_)/2))            :: otherwise
 
 
-==== Transformation 2: reserved (unused)
-==== Transformation 3: PermutePlanes
-==== Transformation 4: Bounds
-==== Transformation 5: PaletteAlpha
-==== Transformation 6: Palette
-==== Transformation 7: ColorBuckets
-==== Transformation 8: reserved (unused)
-==== Transformation 9: reserved (unused)
-==== Transformation 10: DuplicateFrame
-==== Transformation 11: FrameShape
-==== Transformation 12: FrameLookback
-==== Transformation 13: reserved (unused)
+[discrete]
+=== Transformation 2: reserved (unused)
+
+Transformation identifier 2 is not used. It is reserved for future extensions that support transformations
+to other color spaces like YCbCr.
+
+=== Transformation 3: PermutePlanes
+=== Transformation 4: Bounds
+=== Transformation 5: PaletteAlpha
+=== Transformation 6: Palette
+=== Transformation 7: ColorBuckets
+[discrete]
+=== Transformation 8: reserved (unused)
+[discrete]
+=== Transformation 9: reserved (unused)
+=== Transformation 10: DuplicateFrame
+=== Transformation 11: FrameShape
+=== Transformation 12: FrameLookback
+[discrete]
+=== Transformation 13: reserved (unused)
 
 
