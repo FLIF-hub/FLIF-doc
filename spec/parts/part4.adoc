@@ -139,7 +139,96 @@ TIP: As an optimization, it is safe to simply skip pixels from a constant channe
 
 ===== Non-interlaced mode
 
+Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors:
+
+|===
+| *TL* | *T* 
+| *L*  | *X* 
+|===
+
+The predicted value for *X* is the median of the following three values:
+
+* *L* + *T* - *TL*
+* *L*
+* *T*
+
+Border conditions:
+
+* If *X* is at column 0 (so it has no left neighbor *L*), then we set *L* = **range(c).min**, _except_ when *alpha_zero* is true, *c* < 3 and the alpha value at the position of pixel *X* is zero; in that case we set *L* = (**range(c).min**+**range(c).max**)/2.
+* If *X* is at row 0 (so it has no top neighbor *T*), then we set *T* = *TL* = *L*.
+* If *X* is at row > 0 and column 0, then *TL* = *T*.
+
+
+
 ===== Interlaced mode
+
+====== Horizontal zoomlevel (even-numbered)
+
+Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors.
+
+WARNING: These neighbors are defined with respect to the current zoomlevel. In the full image, these 'neighbors' are not directly adjacent (except in zoomlevel 0).
+
+|===
+|      |      | *TT* |
+|      | *TL* | *T*  | *TR*
+| *LL* | *L*  | *X*  |
+|      | *BL* | *B*  |
+|===
+
+The following predictors are defined:
+
+Predictor 0::
+(*T* + *B*)>>1
+
+Predictor 1:: 
+The median of the following three values:
+
+* (*T* + *B*)>>1
+* *L* + *T* - *TL*
+* *L* + *B* - *BL*
+
+Predictor 2::
+The median of *T*, *B* and *L*
+
+Border conditions:
+
+* If *X* is at column 0 (so it has no left neighbor *L*), then we set *L* = *TL* = *BL* = *T*
+* If *X* is at the rightmost column, then we set *TR* = *T*.
+* If *X* is at the last row, then *BL* = *B* = *L*.
+
+
+====== Vertical zoomlevel (odd-numbered)
+
+Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors.
+
+|===
+|      |      | *TT* |
+|      | *TL* | *T*  | *TR*
+| *LL* | *L*  | *X*  | *R*
+|      | *BL* |      |
+|===
+
+The following predictors are defined:
+
+Predictor 0::
+(*L* + *R*)>>1
+
+Predictor 1:: 
+The median of the following three values:
+
+* (*L* + *R*)>>1
+* *L* + *T* - *TL*
+* *R* + *T* - *TR*
+
+Predictor 2::
+The median of *T*, *L* and *R*
+
+Border conditions:
+
+* If *X* is at row 0 (so it has no top neighbor *T*), then we set *T* = *TL* = *TR* = *L*
+* If *X* is at the rightmost column, then we set *TR* = *R* = *T*.
+* If *X* is at the last row, then *BL* = *L*.
+
 
 ==== Properties
 
