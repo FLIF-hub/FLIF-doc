@@ -36,6 +36,7 @@ The YCoCg transformation converts the colorspace from RGB to YCoCg.
 No information has to be encoded for this (besides the identifier of the transformation).
 
 The transformation only affects the first three channels (0,1,2).
+It is not allowed to be used if **nb_channels** = 1.
 
 
 ==== Pixel transformation
@@ -123,6 +124,60 @@ Transformation identifier 2 is not used. It is reserved for future extensions th
 to other color spaces like YCbCr.
 
 === Transformation 3: PermutePlanes
+
+The PermutePlanes transformation reorders (permutes) the channels; optionally it also subtracts the values of the new channel 0
+from the values of channels 1 and 2. This transformation is useful if for some reason the YCoCg transformation is not used:
+it can e.g. be used to transform RGB to G (R-G) (B-G).
+
+This transformation is not allowed to be used in conjunction with the YCoCg transformation; it is also not allowed to be used if **nb_channels** = 1. Also, if **alpha_zero** is true, then channel 3 (Alpha) is not allowed to be permuted to a different channel number.
+
+There are two main reasons to do a channel reordering: better compression (the order matters for compression since the values of previously encoded channels are used in the MANIAC properties, see below), and better progressive previews (e.g. Green is perceptually more important than Red and Blue, so it makes sense to encode it first). Additionally, subtracting channel 0 from the other channels is a simple form of channel decorrelation; usually not as good as the YCoCg transformation though.
+
+We denote the permutation used by PermutePlanes with **p**, where **p(nc)=oc** means that the new channel number **nc** corresponds to the old channel number **oc**.
+
+Without subtraction, the forward transformation looks as follows:
+
+|===
+| Channel number **c** | Original pixel value | New pixel value (no Subtract) | **new_range(c)** (no Subtract)
+
+| 0                    | _v~0~_         | _v~**p(0)**~_   | **range(p(0))**
+| 1                    | _v~1~_         | _v~**p(1)**~_   | **range(p(1))**
+| 2                    | _v~2~_         | _v~**p(2)**~_   | **range(p(2))**
+| 3                    | _v~3~_         | _v~**p(3)**~_   | **range(p(3))**
+|===
+
+With subtraction, the forward transformation looks as follows:
+
+|===
+| Channel number **c** | Original pixel value | New pixel value (with Subtract) | **new_range(c)** (with Subtract)
+
+| 0                    | _v~0~_         | _v~**p(0)**~_   | **range(p(0))**
+| 1                    | _v~1~_         | _v~**p(1)**~_-_v~**p(0)**~_   | **range(p(1)).min**-**range(p(0)).max** to **range(p(1)).max**-**range(p(0)).min**
+
+| 2                    | _v~2~_         | _v~**p(2)**~_-_v~**p(0)**~_   | **range(p(2)).min**-**range(p(0)).max** to **range(p(2)).max**-**range(p(0)).min**
+| 3                    | _v~3~_         | _v~**p(3)**~_   | **range(perm(3))**
+|===
+
+The reverse transformation can easily be derived from this: given input values __(in~0~,in~1~,in~2~,in~3~)__, the output values are given by __out~**p(c)**~ = in~**c**~__ if there is no Subtract or **c** is 0 or 3, and by
+__out~**p(c)**~ = in~**c**~ + in~0~__ if there is Subtract and **c** is 1 or 2.
+
+To encode the parameters of this transformation, near-zero symbol coding is used, with a single context which we will call A.
+
+|===
+| Type | Description | Condition
+
+| nz_int_A(0,1)
+| Boolean: **Subtract**
+|
+
+| nz_int_A(0,**nb_channels**-1)
+| **p(c)**
+| repeat: **c** from 0 to **nb_channels**-1
+|===
+
+The decoder has to check that **p** actually describes a permutation, i.e. it is a bijection (no two input channels map to the same output channel).
+
+
 === Transformation 4: Bounds
 === Transformation 5: PaletteAlpha
 === Transformation 6: Palette
