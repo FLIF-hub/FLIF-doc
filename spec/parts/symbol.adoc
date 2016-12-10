@@ -4,14 +4,24 @@
 From here on, all values are encoded using arithmetic coding.
 
 uni_int(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Uniform symbol coding (see below) and a 24-bit RAC. This encoding is not context-adaptive, and every number in the interval gets a fixed chance (close to a uniform distribution, hence the name).
-uni_int(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for rac24(0,2^_b_-1).
+uni_int(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for uni_int(0,2^_b_-1).
 
-nz_int_CONTEXT(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Near-zero symbol coding (see below) and a 24-bit RAC, where the chance table is given by CONTEXT. This encoding is context-adaptive; numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance.
+nz_int_**CONTEXT**(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Near-zero symbol coding (see below) and a 24-bit RAC, where the chance table is given by **CONTEXT**. This encoding is context-adaptive, i.e. the chance table gets updated when encoding or decoding a number. Numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance (hence the name).
+
+=== Range encoder
+
+TODO: describe the 24-bit RAC and the 12-bit chances.
+
+==== Chance table update
+
+TODO: describe how *cutoff* and *alpha* influence this.
+
 
 === Uniform Symbol Coding
 
-An integer encoded with Uniform symbol coding uses a series of 50% chance bits to recursively narrow down the input interval
-until it is a singleton. The following code describes how to decode such an integer:
+An integer encoded with Uniform symbol coding uses a series of 50% chance bits (chance is 2048/4096, non-adaptive)
+to recursively narrow down the input interval until it is a singleton.
+The following code describes how to decode such an integer:
 
 [source,c]
 ----
@@ -50,35 +60,6 @@ Every bit position of this representation has its own RAC context (so their chan
 not just depending on their position but also depending on the sign.
 Chances are represented as 12-bit numbers (1..4095), where 1 means that the bit is very likely to be zero (it has 1/4096 chance of being one),
 while 4095 means that the bit is very likely to be one (the chance is 4095/4096).
-
-The chances are initialized as follows:
-
-|===
-| bit    | initial chance
-
-| ZERO   | 1000
-| SIGN   | 2048
-| EXP(0,_sign_) | 1000
-| EXP(1,_sign_) | 1200
-| EXP(2,_sign_) | 1500
-| EXP(3,_sign_) | 1750
-| EXP(4,_sign_) | 2000
-| EXP(5,_sign_) | 2300
-| EXP(6,_sign_) | 2800
-| EXP(7,_sign_) | 2400
-| EXP(8,_sign_) | 2300
-| EXP(9,_sign_) | 2048
-| EXP(_k_,_sign_), _k_ > 9 | 2048
-| MANT(0) | 1900
-| MANT(1) | 1850
-| MANT(2) | 1800
-| MANT(3) | 1750
-| MANT(4) | 1650
-| MANT(5) | 1600
-| MANT(6) | 1600
-| MANT(7) | 2048
-| MANT(_k_), _k_ > 7 | 2048
-|===
 
 The following code describes how to decode an integer in this representation:
 
@@ -147,4 +128,32 @@ The following code describes how to decode an integer in this representation:
     }
 ----
 
+The chances are initialized as follows:
+
+|===
+| bit    | initial chance
+
+| ZERO   | 1000
+| SIGN   | 2048
+| EXP(0,_sign_) | 1000
+| EXP(1,_sign_) | 1200
+| EXP(2,_sign_) | 1500
+| EXP(3,_sign_) | 1750
+| EXP(4,_sign_) | 2000
+| EXP(5,_sign_) | 2300
+| EXP(6,_sign_) | 2800
+| EXP(7,_sign_) | 2400
+| EXP(8,_sign_) | 2300
+| EXP(9,_sign_) | 2048
+| EXP(_k_,_sign_), _k_ > 9 | 2048
+| MANT(0) | 1900
+| MANT(1) | 1850
+| MANT(2) | 1800
+| MANT(3) | 1750
+| MANT(4) | 1650
+| MANT(5) | 1600
+| MANT(6) | 1600
+| MANT(7) | 2048
+| MANT(_k_), _k_ > 7 | 2048
+|===
 
