@@ -141,6 +141,7 @@ TIP: As an optimization, it is safe to simply skip pixels from a constant channe
 
 Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors:
 
+[%autowidth]
 |===
 | *TL* | *T* 
 | *L*  | *X* 
@@ -168,6 +169,7 @@ Assume we have to predict pixel *X* in channel *c* given its previously decoded 
 
 WARNING: These neighbors are defined with respect to the current zoomlevel. In the full image, these 'neighbors' are not directly adjacent (except in zoomlevel 0).
 
+[%autowidth]
 |===
 |      |      | *TT* |
 |      | *TL* | *T*  | *TR*
@@ -201,6 +203,7 @@ Border conditions:
 
 Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors.
 
+[%autowidth]
 |===
 |      |      | *TT* |
 |      | *TL* | *T*  | *TR*
