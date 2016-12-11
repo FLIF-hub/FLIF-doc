@@ -117,7 +117,7 @@ The overall encoding mechanism of a pixel value _v_ is as follows:
 
 * The value is predicted, resulting in a predicted value _guess_
 * The range of possible values is computed as accurately as possible using **crange(c,...)**, resulting in _min_ and _max_
-** If needed, _guess_ is adjusted to be in this range
+** _guess_ is adjusted to be a valid value in this range using **snap(c,...)**
 * The local context of the pixel is computed as a MANIAC property vector _pvec_
 * The number that actually gets encoded is the difference between the actual and predicted value _v_ - _guess_
 ** If the prediction is any good, these numbers tend to be close to zero
@@ -136,6 +136,8 @@ Some pixels are not encoded at all. There are three such cases:
 TIP: As an optimization, it is safe to simply skip pixels from a constant channel, that is, a channel which has a singleton range. Technically, one could argue that they are actually encoded, but for each pixel value _v_, we have _v_ = _min_ = _max_ = _guess_, which means the symbol encoding doesn't use any bits.
 
 ==== Pixel predictors
+
+The different pixel predictors are described below. In each case, the actual predicted value is the value returned by the *snap* function. Usually the *snap* function will simply return its input value, but not always. Noteworthy exceptions are Predictor 1 of Interlaced mode, which as defined below could even be outside the channel range *range*, and any predictor in combination with the ColorBuckets transformation, which can have a nontrivial *snap* function.
 
 ===== Non-interlaced mode
 
@@ -235,7 +237,50 @@ Border conditions:
 
 ==== Properties
 
+The MANIAC property vector which is used to determine the context (i.e. the MANIAC tree leaf node) is constructed
+in the following way. Assume the pixel currently being decoded is pixel *X* in channel number **c** and the pixel values of previously decoded neighboring pixels (of the same channel) are named as in the diagram below -- it depends on the interlacing mode and zoomlevel which of these are known at decode time.
+
+[%autowidth]
+|===
+|      |      | *TT* |
+|      | *TL* | *T*  | *TR*
+| *LL* | *L*  | *X*  | *R*
+|      | *BL* | *B*  |
+|===
+
+Moreover, we use **X~pc~** to denote the pixel value at the position of *X* in a previously decoded channel *pc*,
+and **P** to denote the predicted value for *X* (as described above).
+
+Finally, we define the range **maxdiff(c)** as the range of a difference between two pixel values in channel *c*, that is: **maxdiff(c).min** = **range(c).min** - **range(c).max** and **maxdiff(c).max** = **range(0).max**-**range(c).min**.
+
 ===== Non-interlaced mode
+
+|===
+| Property    | Description            | Condition     | Property range (*prange*)
+
+| **X~0~**    | Luma / channel 0 value | 0 < **c** < 3 | **range(0)**
+| **X~1~**    | Co / channel 1 value   | 1 < **c** < 3 | **range(1)**
+| **X~3~**    | Alpha value            | **c** < 3 < **nb_channels** | **range(3)**
+| **P**       | Predicted value **snap(c,...,**median(*L*+*T*-*TL*,*L*,*T*)**)**      |               | **range(c)**
+| **M**       | Median-index (see below) |               | 0..2
+| *L* - *TL*  | Left - Topleft         |               | **maxdiff(c)**
+| *TL* - *T*  | Topleft - Top          |               | **maxdiff(c)**
+| *T* - *TR*  | Top - Topright         |               | **maxdiff(c)**
+| *TT* - *T*  | Toptop - Top           |               | **maxdiff(c)**
+| *LL* - *L*  | Leftleft - Left        |               | **maxdiff(c)**
+|===
+
+Border conditions: if in the last five properties, which are differences between two neighboring pixels, one of those pixels does not exist, the property is defined to be zero.
+
+The median-index **M** indicates which of the three input values for the median predictor became the predictor; more precisely, it is defined as follows:
+
+**M** =
+
+[horizontal]
+0 :: if *P* = *L*+*T*-*TL*
+1 :: if *P* = *L*  (and the above condition does not hold)
+2 :: if *P* = *T*  (and neither of the above conditions hold)
+0 :: otherwise
 
 ===== Interlaced mode
 
