@@ -49,9 +49,6 @@ It is not allowed to be used if **nb_channels** = 1.
 | 2        | Blue (B)         | Chroma green (Cg)  | Cg = G - ((R+B)>>1)      | B = Y + ((1-Cg)>>1) - (Co>>1)
 |===
 
-IMPORTANT: >>1 denotes arithmetic right shift, which corresponds to dividing by two *rounding down*.
-For positive integers this is the same as /2, but for negative integers it is not, e.g. -1 / 2 = 0 while -1 >> 1 = -1.
-
 Luma (Y) corresponds to roughly 50% green, 25% red, 25% blue. Chroma orange (Co) is positive for colors near orange (red, orange, yellow),
 and negative for colors near blue. Chroma green (Cg) is positive for colors near green and negative for colors near purple.
 
