@@ -284,7 +284,7 @@ Next, for all values **v~0~** in **b~0~**, Color Bucket **b~1~(v~0~)** is encode
 |===
 
 
-Next, for all values **v~0~** in **b~0~**, for all values **qv~1~** from 0 to (**orig_range(1).max** - **orig_range(1).min**) / 4, Color Bucket **b~2~(v~0~,qv~1~)** is encoded if **v~1~ = qv~1~ * 4 + orig_range(1).min** is in the set **b~1~(v~0~)**:
+Next, for all values **v~0~** in **b~0~**, for all values **qv~1~** from 0 to (**orig_range(1).max** - **orig_range(1).min**) / 4, Color Bucket **b~2~(v~0~,qv~1~)** is encoded if for some _k_ in 0..3, it is the case that **v~1~** = **qv~1~** * 4 + **orig_range(1).min** + _k_ is in the set **b~1~(v~0~)**:
 
 |===
 | Type | Description | Condition | Effect
