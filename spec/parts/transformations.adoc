@@ -137,10 +137,10 @@ Without subtraction, the forward transformation looks as follows:
 |===
 | Channel number **c** | Original pixel value | New pixel value (no Subtract) | **new_range(c)** (no Subtract)
 
-| 0                    | _v~0~_         | _v~**p(0)**~_   | **range(p(0))**
-| 1                    | _v~1~_         | _v~**p(1)**~_   | **range(p(1))**
-| 2                    | _v~2~_         | _v~**p(2)**~_   | **range(p(2))**
-| 3                    | _v~3~_         | _v~**p(3)**~_   | **range(p(3))**
+| 0                    | _v~0~_         | _v~**p(0)**~_   | **orig_range(p(0))**
+| 1                    | _v~1~_         | _v~**p(1)**~_   | **orig_range(p(1))**
+| 2                    | _v~2~_         | _v~**p(2)**~_   | **orig_range(p(2))**
+| 3                    | _v~3~_         | _v~**p(3)**~_   | **orig_range(p(3))**
 |===
 
 With subtraction, the forward transformation looks as follows:
@@ -148,11 +148,11 @@ With subtraction, the forward transformation looks as follows:
 |===
 | Channel number **c** | Original pixel value | New pixel value (with Subtract) | **new_range(c)** (with Subtract)
 
-| 0                    | _v~0~_         | _v~**p(0)**~_   | **range(p(0))**
-| 1                    | _v~1~_         | _v~**p(1)**~_-_v~**p(0)**~_   | **range(p(1)).min**-**range(p(0)).max** to **range(p(1)).max**-**range(p(0)).min**
+| 0                    | _v~0~_         | _v~**p(0)**~_   | **orig_range(p(0))**
+| 1                    | _v~1~_         | _v~**p(1)**~_-_v~**p(0)**~_   | **orig_range(p(1)).min**-**orig_range(p(0)).max** to **orig_range(p(1)).max**-**orig_range(p(0)).min**
 
-| 2                    | _v~2~_         | _v~**p(2)**~_-_v~**p(0)**~_   | **range(p(2)).min**-**range(p(0)).max** to **range(p(2)).max**-**range(p(0)).min**
-| 3                    | _v~3~_         | _v~**p(3)**~_   | **range(perm(3))**
+| 2                    | _v~2~_         | _v~**p(2)**~_-_v~**p(0)**~_   | **orig_range(p(2)).min**-**orig_range(p(0)).max** to **orig_range(p(2)).max**-**orig_range(p(0)).min**
+| 3                    | _v~3~_         | _v~**p(3)**~_   | **orig_range(perm(3))**
 |===
 
 The reverse transformation can easily be derived from this: given input values __(in~0~,in~1~,in~2~,in~3~)__, the output values are given by __out~**p(c)**~ = in~**c**~__ if there is no Subtract or **c** is 0 or 3, and by
@@ -179,6 +179,151 @@ The decoder has to check that **p** actually describes a permutation, i.e. it is
 === Transformation 5: PaletteAlpha
 === Transformation 6: Palette
 === Transformation 7: ColorBuckets
+
+The ColorBuckets transformation is an alternative to the Palette transformations; it is useful for sparse-color images, especially if the number of colors is relatively small but still too large for effective palette encoding.
+
+Unlike the Palette transformations, ColorBuckets does not modify the actual pixel values. As a result, the reverse transformation is trivial: nothing has to be done. However, the transformation does change the *crange* and the *snap* functions. By reducing the range of valid pixel values (sometimes drastically), compression improves.
+
+A 'Color Bucket' is a (possibly empty) set of pixel values. For channel 0, there is a single Color Bucket *b~0~*. For channel 1, there is one Color Bucket for each pixel value in **orig_range(0)**; we'll denote these Color Buckets with **b~1~(v~0~)**. For channel 2, there is one Color Bucket for each combination of values (**v~0~**,**Q(v~1~)**) where **v~0~** is in **orig_range(0)**, **v~1~** is in **orig_range(1)**, and the quantization function **Q** maps *x* to (**x** - **orig_range(1).min**) / 4. Finally, for channel 3, there is a single Color Bucket **b~3~**.
+
+The new ranges are identical to the original ranges: **new_range(c)** = **orig_range(c)**.
+
+The new _conditional_ ranges are given by the minimum and maximum of the corresponding Color Buckets:
+
+* **new_crange(0)** = min(**b~0~**) .. max(**b~0~**)
+* **new_crange(1,v~0~)** = min(**b~1~(v~0~)**) .. max(**b~1~(v~0~)**)
+* **new_crange(2,v~0~,v~1~)** = min(**b~2~(v~0~,Q(v~1~)**) .. max(**b~2~(v~0~,Q(v~1~)**)
+* **new_crange(3)** = min(**b~3~**) .. max(**b~3~**)
+
+The new *snap* function returns the value in the corresponding Color Bucket that is _closest_ to the input value;
+if there are two such values, it returns the lowest one. For example, if Color Bucket **b~1~(20)** is the set {-1,3,4,6,8},
+then **new_snap(1,20,x)** returns -1 for *x*=-100, 4 for *x*=5, 6 for *x*=6, and 8 for *x*=100.
+
+The ColorBuckets transformation is not allowed in the following circumstances:
+
+* Palette or PaletteAlpha is used, or in general, both channel 0 and 2 contain only zeroes: **orig_range(0)** = **orig_range(2)** = 0 .. 0
+* The image is a grayscale image
+* Channel 1 is trivial: **orig_range(1)** is a singleton
+* Channel 0, 1 or 2 requires more than 10 bits: **orig_range(c).max** - **orig_range(c).min** > 1023
+
+
+To encode the Color Buckets, (generalized) near-zero symbol coding is used with 6 different contexts, which we will call A,B,C,D,E, and F.  The encoding is quite complicated.
+
+To decode, all Color Buckets are initialized to empty sets.
+
+First **b~0~** is encoded:
+
+|===
+| Type | Description | Condition | Effect
+
+| nz_int_A(0,1) = 1
+| Boolean: *nonempty*
+|
+|
+
+| gnz_int_B(**orig_range(0).min**, **orig_range(0).max**)
+| **min**
+|
+|
+
+| gnz_int_C(**min**, **orig_range(0).max**)
+| **max**
+|
+| if **max** - **min** < 2, then **b~0~** = { **min**, **max** }
+
+| nz_int_D(0,1)
+| **discrete**
+| **max** - **min** > 1
+| if **discrete** = 0, then **b~0~** = **min** .. **max**
+
+| gnz_int_E(2, min(255, **max** - **min**))
+| **n** = size of **b~0~**
+| **discrete**
+| **b~0~[0]** = **min**, **b~0~[n-1]** = **max** 
+
+| gnz_int_F(**b~0~[_i_-1]**+1, **max** + 1 + **_i_** - **n**)
+| **b~0~[_i_]**
+| **discrete**, repeat: **_i_** from 1 to **n**-2
+|
+|===
+
+Next, for all values **v~0~** in **b~0~**, Color Bucket **b~1~(v~0~)** is encoded:
+
+|===
+| Type | Description | Condition | Effect
+
+| nz_int_A(0,1)
+| Boolean: *nonempty*
+|
+| if false, **b~1~(v~0~)** is the empty set
+
+| gnz_int_B(**orig_crange(1,v~0~).min**, **orig_crange(1,v~0~).max**)
+| **min**
+| *nonempty*
+|
+
+| gnz_int_C(**min**, **orig_range(1,v~0~).max**)
+| **max**
+| *nonempty*
+| if **max** - **min** < 2, then **b~1~(v~0~)** = { **min**, **max** }
+
+| nz_int_D(0,1)
+| **discrete**
+| **max** - **min** > 1
+| if **discrete** = 0, then **b~1~(v~0~)** = **min** .. **max**
+
+| gnz_int_E(2, min(510, **max** - **min**))
+| **n** = size of **b~1~(v~0~)**
+| **discrete**
+| **b~1~(v~0~)[0]** = **min**, **b~1~(v~0~)[n-1]** = **max** 
+
+| gnz_int_F(**b~1~(v~0~)[_i_-1]**+1, **max** + 1 + **_i_** - **n**)
+| **b~1~(v~0~)[_i_]**
+| **discrete**, repeat: **_i_** from 1 to **n**-2
+|
+|===
+
+
+Next, for all values **v~0~** in **b~0~**, for all values **qv~1~** from 0 to (**orig_range(1).max** - **orig_range(1).min**) / 4, Color Bucket **b~2~(v~0~,qv~1~)** is encoded if **v~1~ = qv~1~ * 4 + orig_range(1).min** is in the set **b~1~(v~0~)**:
+
+|===
+| Type | Description | Condition | Effect
+
+| nz_int_A(0,1)
+| Boolean: *nonempty*
+|
+| if false, remove **v~1~** from **b~1~(v~0~)**
+
+| gnz_int_B(min~k=0..3~(**orig_crange(2,v~0~,v~1~ + k).min**), max~k=0..3~(**orig_crange(2,v~0~,v~1~ + k).max**))
+| **min**
+| *nonempty*
+|
+
+| gnz_int_C(**min**, max~k=0..3~(**orig_crange(2,v~0~,v~1~ + k).max**))
+| **max**
+| *nonempty*
+| if **max** - **min** < 2, then **b~2~(v~0~,qv~1~)** = { **min**, **max** }
+
+| nz_int_D(0,1)
+| **discrete**
+| **max** - **min** > 1
+| if **discrete** = 0, then **b~2~(v~0~,qv~1~)** = **min** .. **max**
+
+| gnz_int_E(2, min(5, **max** - **min**))
+| **n** = size of **b~2~(v~0~,qv~1~)**
+| **discrete**
+| **b~2~(v~0~,qv~1~)[0]** = **min**, **b~2~(v~0~,qv~1~)[n-1]** = **max** 
+
+| gnz_int_F(**b~2~(v~0~,qv~1~)[_i_-1]**+1, **max** + 1 + **_i_** - **n**)
+| **b~2~(v~0~,qv~1~)[_i_]**
+| **discrete**, repeat: **_i_** from 1 to **n**-2
+|
+|===
+
+Finally, if there is an Alpha channel (i.e. **nb_channels** > 3), then **b~3~** is encoded in exactly the same
+way as **b~0~**.
+
+
 [discrete]
 === Transformation 8: reserved (unused)
 [discrete]
