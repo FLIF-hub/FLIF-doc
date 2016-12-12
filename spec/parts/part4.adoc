@@ -137,11 +137,11 @@ Some pixels are not encoded at all. There are three such cases:
 
 TIP: As an optimization, it is safe to simply skip pixels from a constant channel, that is, a channel which has a singleton range. Technically, one could argue that they are actually encoded, but for each pixel value _v_, we have _v_ = _min_ = _max_ = _guess_, which means the symbol encoding doesn't use any bits.
 
-==== Pixel predictors
+=== Pixel predictors
 
 The different pixel predictors are described below. In each case, the actual predicted value is the value returned by the *snap* function. Usually the *snap* function will simply return its input value, but not always. Noteworthy exceptions are Predictor 1 of Interlaced mode, which as defined below could even be outside the channel range *range*, and any predictor in combination with the ColorBuckets transformation, which can have a nontrivial *snap* function.
 
-===== Non-interlaced mode
+==== Non-interlaced mode
 
 Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors:
 
@@ -165,11 +165,11 @@ Border conditions:
 
 
 
-===== Interlaced mode
+==== Interlaced mode
 
 In interlaced mode, there are three different predictors. Moreover, the predictors are slightly different in even-numbered zoomlevels compared to odd-numbered zoomlevels, since slightly different neighboring pixels are available (already decoded) : in horizontal zoomlevels the pixel _below_ the current pixel is already known (since it is part of the previously decoded zoomlevel), while in vertical zoomlevels the pixel _to the right_ of the current pixel is already known.
 
-====== Horizontal zoomlevel (even-numbered)
+===== Horizontal zoomlevel (even-numbered)
 
 Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors.
 
@@ -205,7 +205,7 @@ Border conditions:
 * If *X* is at the last row, then *BL* = *B* = *L*.
 * If *X* is at the rightmost column or last row, then *BR* = *B*.
 
-====== Vertical zoomlevel (odd-numbered)
+===== Vertical zoomlevel (odd-numbered)
 
 Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors.
 
@@ -240,9 +240,9 @@ Border conditions:
 * If *X* is at the rightmost column or last row, then *BR* = *R*.
 
 
-==== Properties
+=== MANIAC properties
 
-The MANIAC property vector which is used to determine the context (i.e. the MANIAC tree leaf node) is constructed
+The MANIAC property vector _pvec_ which is used to determine the context (i.e. the MANIAC tree leaf node) is constructed
 in the following way. Assume the pixel currently being decoded is pixel *X* in channel number **c** and the pixel values of previously decoded neighboring pixels (of the same channel) are named as in the diagram below -- it depends on the interlacing mode and zoomlevel which of these are known at decode time.
 
 [%autowidth]
@@ -258,7 +258,7 @@ and **P** to denote the predicted value for *X* (as described above).
 
 Finally, we define the range **maxdiff(c)** as the range of a difference between two pixel values in channel *c*, that is: **maxdiff(c).min** = **range(c).min** - **range(c).max** and **maxdiff(c).max** = **range(0).max** - **range(c).min**.
 
-===== Non-interlaced mode
+==== Non-interlaced mode
 
 In non-interlaced mode, the following MANIAC properties are defined for a pixel in channel *c*:
 
@@ -291,7 +291,7 @@ The median-index **M~ni~** indicates which of the three input values for the med
 2 :: if *P* = *T*  (and neither of the above conditions hold)
 0 :: otherwise
 
-===== Interlaced mode
+==== Interlaced mode
 
 In interlaced mode, the following MANIAC properties are defined for a pixel in zoomlevel *z* of channel *c* using predictor *p*:
 
@@ -375,7 +375,7 @@ From this description, the MANIAC trees can be reconstructed. Leaf nodes have a 
 
 === Checksum
 
-At the very end of the bitstream, there is an optional checksum to verify the integrity of the file.
+At the very end of the bitstream, there is an optional 32-bit checksum to verify the integrity of the file.
 
 TODO: describe how the checksum is computed
 
