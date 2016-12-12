@@ -8,6 +8,15 @@ uni_int(_b_) denotes an integer of _b_ bits, i.e. it's a synonym for uni_int(0,2
 
 nz_int_**CONTEXT**(_min_,_max_) denotes an integer in the interval _min_.._max_ (inclusive), encoded using Near-zero symbol coding (see below) and a 24-bit RAC, where the chance table is given by **CONTEXT**. This encoding is context-adaptive, i.e. the chance table gets updated when encoding or decoding a number. Numbers are encoded using a zero-sign-exponent-mantissa representation, which favors distributions in which near-zero values have a higher chance (hence the name).
 
+gnz_int_**CONTEXT**(_min_,_max_) denotes a simple generalization of Near-zero symbol coding that can be used in case the interval does not necessarily include zero. It is defined as follows:
+
+gnz_int_**CONTEXT**(_min_,_max_) =
+
+[horizontal]
+nz_int_**CONTEXT**(0, _max_ - _min_) + _min_ :: if _min_ > 0
+nz_int_**CONTEXT**(_min_ - _max_, 0) + _max_ :: if _max_ < 0
+nz_int_**CONTEXT**(_min_,_max_) :: otherwise
+
 === Range encoder
 
 TODO: describe the 24-bit RAC and the 12-bit chances.
