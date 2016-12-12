@@ -27,7 +27,11 @@ A FLIF file consists of 4 parts, with increasingly complicated encoding methods:
 
 == Notational conventions
 
-We use '/' to denote integer division.
+We use '/' to denote integer division (rounding towards zero) and '>>' to denote arithmetic right shift. This corresponds to the usual operator semantics in e.g. the C programming language.
+
+IMPORTANT: >>1 denotes arithmetic right shift by one, which corresponds to dividing by two *rounding down*.
+For positive integers this is the same as /2, but for negative integers it is not, e.g. -1 / 2 = 0 while -1 >> 1 = -1.
+
 
 
 include::parts/part1.adoc[]
