@@ -1,6 +1,8 @@
 
 == Part 4: pixel data
 
+In this final part of the FLIF bitstream, the actual pixel values are encoded. There are two methods (or modes) of pixel encoding: non-interlaced and interlaced. The main header indicates which method is used (see Part 1 above).
+
 === Non-Interlaced method
 
 If this encode method is used, then we start immediately with the encoding of the MANIAC trees (see below), followed by the encoding of the pixels. The order in which the pixels are encoded is described by the following nested loops:
@@ -165,6 +167,8 @@ Border conditions:
 
 ===== Interlaced mode
 
+In interlaced mode, there are three different predictors. Moreover, the predictors are slightly different in even-numbered zoomlevels compared to odd-numbered zoomlevels, since slightly different neighboring pixels are available (already decoded) : in horizontal zoomlevels the pixel _below_ the current pixel is already known (since it is part of the previously decoded zoomlevel), while in vertical zoomlevels the pixel _to the right_ of the current pixel is already known.
+
 ====== Horizontal zoomlevel (even-numbered)
 
 Assume we have to predict pixel *X* in channel *c* given its previously decoded neighbors.
@@ -176,7 +180,7 @@ WARNING: These neighbors are defined with respect to the current zoomlevel. In t
 |      |      | *TT* |
 |      | *TL* | *T*  | *TR*
 | *LL* | *L*  | *X*  |
-|      | *BL* | *B*  |
+|      | *BL* | *B*  | *BR*
 |===
 
 The following predictors are defined:
@@ -199,7 +203,7 @@ Border conditions:
 * If *X* is at column 0 (so it has no left neighbor *L*), then we set *L* = *TL* = *BL* = *T*
 * If *X* is at the rightmost column, then we set *TR* = *T*.
 * If *X* is at the last row, then *BL* = *B* = *L*.
-
+* If *X* is at the rightmost column or last row, then *BR* = *B*.
 
 ====== Vertical zoomlevel (odd-numbered)
 
@@ -210,22 +214,22 @@ Assume we have to predict pixel *X* in channel *c* given its previously decoded 
 |      |      | *TT* |
 |      | *TL* | *T*  | *TR*
 | *LL* | *L*  | *X*  | *R*
-|      | *BL* |      |
+|      | *BL* |      | *BR*
 |===
 
 The following predictors are defined:
 
-Predictor 0::
+Predictor 0 (**P~0~**)::
 (*L* + *R*)>>1
 
-Predictor 1:: 
+Predictor 1 (**P~1~**):: 
 The median of the following three values:
 
 * (*L* + *R*)>>1
 * *L* + *T* - *TL*
 * *R* + *T* - *TR*
 
-Predictor 2::
+Predictor 2 (**P~2~**)::
 The median of *T*, *L* and *R*
 
 Border conditions:
@@ -233,6 +237,7 @@ Border conditions:
 * If *X* is at row 0 (so it has no top neighbor *T*), then we set *T* = *TL* = *TR* = *L*
 * If *X* is at the rightmost column, then we set *TR* = *R* = *T*.
 * If *X* is at the last row, then *BL* = *L*.
+* If *X* is at the rightmost column or last row, then *BR* = *R*.
 
 
 ==== Properties
@@ -251,9 +256,11 @@ in the following way. Assume the pixel currently being decoded is pixel *X* in c
 Moreover, we use **X~pc~** to denote the pixel value at the position of *X* in a previously decoded channel *pc*,
 and **P** to denote the predicted value for *X* (as described above).
 
-Finally, we define the range **maxdiff(c)** as the range of a difference between two pixel values in channel *c*, that is: **maxdiff(c).min** = **range(c).min** - **range(c).max** and **maxdiff(c).max** = **range(0).max**-**range(c).min**.
+Finally, we define the range **maxdiff(c)** as the range of a difference between two pixel values in channel *c*, that is: **maxdiff(c).min** = **range(c).min** - **range(c).max** and **maxdiff(c).max** = **range(0).max** - **range(c).min**.
 
 ===== Non-interlaced mode
+
+In non-interlaced mode, the following MANIAC properties are defined for a pixel in channel *c*:
 
 |===
 | Property    | Description            | Condition     | Property range (*prange*)
@@ -262,7 +269,7 @@ Finally, we define the range **maxdiff(c)** as the range of a difference between
 | **X~1~**    | Co / channel 1 value   | 1 < **c** < 3 | **range(1)**
 | **X~3~**    | Alpha value            | **c** < 3 < **nb_channels** | **range(3)**
 | **P**       | Predicted value **snap(c,...,**median(*L*+*T*-*TL*,*L*,*T*)**)**      |               | **range(c)**
-| **M**       | Median-index (see below) |               | 0..2
+| **M~ni~**   | Median-index (see below) |               | 0..2
 | *L* - *TL*  | Left - Topleft         |               | **maxdiff(c)**
 | *TL* - *T*  | Topleft - Top          |               | **maxdiff(c)**
 | *T* - *TR*  | Top - Topright         |               | **maxdiff(c)**
@@ -270,11 +277,13 @@ Finally, we define the range **maxdiff(c)** as the range of a difference between
 | *LL* - *L*  | Leftleft - Left        |               | **maxdiff(c)**
 |===
 
+NOTE: For images _without_ an alpha channel, channel 0 has 7 properties (numbered 0 to 6), channel 1 has 8 properties, and channel 2 has 9 properties. For images with an alpha channel, channel 0 has 8 properties, channel 1 has 9 properties, channel 2 has 10 properties, and channel 3 has 7 properties. In animations with FrameLookback, channel 4 has 7 properties.
+
 Border conditions: if in the last five properties, which are differences between two neighboring pixels, one of those pixels does not exist, the property is defined to be zero.
 
-The median-index **M** indicates which of the three input values for the median predictor became the predictor; more precisely, it is defined as follows:
+The median-index **M~ni~** indicates which of the three input values for the median predictor became the predictor; more precisely, it is defined as follows:
 
-**M** =
+**M~ni~** =
 
 [horizontal]
 0 :: if *P* = *L*+*T*-*TL*
@@ -284,6 +293,45 @@ The median-index **M** indicates which of the three input values for the median 
 
 ===== Interlaced mode
 
+In interlaced mode, the following MANIAC properties are defined for a pixel in zoomlevel *z* of channel *c* using predictor *p*:
+
+|===
+| Property    | Description            | Condition     | Property range (*prange*)
+
+| **X~0~**    | Luma / channel 0 value | 0 < **c** < 3 | **range(0)**
+| **X~1~**    | Co / channel 1 value   | 1 < **c** < 3 | **range(1)**
+| **X~3~**    | Alpha value            | **c** < 3 < **nb_channels** | **range(3)**
+| **M~i~**    | Median-index (see below) |             | 0..2
+| *X~0~* - (*T~0~*+*B~0~*)>>1  | Luma 'prediction miss' | 0 < *c* < 3 and *z* is even | **maxdiff(0)**
+| *X~0~* - (*L~0~*+*R~0~*)>>1  | Luma 'prediction miss' | 0 < *c* < 3 and *z* is odd | **maxdiff(0)**
+| *T* - *B*   | Top - Bottom           | *z* is even   | **maxdiff(c)**
+| *T* - (*TL* + *TR*)>>1 | Top 'prediction miss'  | *z* is even | **maxdiff(c)**
+| *L* - (*BL* + *TL*)>>1 | Left 'prediction miss' | *z* is even | **maxdiff(c)**
+| *B* - (*BL* + *BR*)>>1 | Bottom 'prediction miss' | *z* is even | **maxdiff(c)**
+| *L* - *R*   | Left - Right           | *z* is odd    | **maxdiff(c)**
+| *L* - (*BL* + *TL*)>>1 | Left 'prediction miss' | *z* is odd | **maxdiff(c)**
+| *T* - (*TL* + *TR*)>>1 | Top 'prediction miss'  | *z* is odd | **maxdiff(c)**
+| *R* - (*BR* + *TR*)>>1 | Right 'prediction miss' | *z* is odd | **maxdiff(c)**
+| **P~p~**    | Predicted value (see above) |          | **range(c)**
+| *TT* - *T*  | Toptop - Top           | *c* is not 2  | **maxdiff(c)**
+| *LL* - *L*  | Leftleft - Left        | *c* is not 2  | **maxdiff(c)**
+|===
+
+NOTE: For images _without_ an alpha channel, channel 0 has 8 properties (numbered 0 to 7), channel 1 has 10 properties, and channel 2 has 9 properties. For images with an alpha channel, channel 0 has 9 properties, channel 1 has 11 properties, channel 2 has 10 properties, and channel 3 has 8 properties. In animations with FrameLookback, channel 4 has 8 properties.
+
+Border conditions:
+If *TL*, *T*, *TR*, *L*, *BL*, *B*, *BR* or *R* are missing, they are defined as described in the interlaced pixel predictor definition above. If *TT* or *LL* are missing, the property they occur in gets value zero.
+If *B~0~* is missing, *B~0~* = *T~0~*; if *R~0~* is missing, *R~0~* = *L~0~*.
+
+The median-index **M~i~** indicates which of the three input values for the median in Predictor 1 is the median; more precisely, it is defined as follows:
+
+**M~i~** =
+
+[horizontal]
+0 :: if *z* is even and **P~1~** = (*T* + *B*)>>1
+0 :: if *z* is odd and **P~1~** = (*L* + *R*)>>1
+1 :: if **P~1~** = *L* + *T* - *TR*  (and the above conditions do not hold)
+2 :: otherwise
 
 
 === MANIAC tree encoding
