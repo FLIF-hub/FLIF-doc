@@ -377,8 +377,6 @@ From this description, the MANIAC trees can be reconstructed. Leaf nodes have a 
 
 At the very end of the bitstream, there is an optional 32-bit checksum to verify the integrity of the file.
 
-TODO: describe how the checksum is computed
-
 |===
 | Type             | Description                       | Condition
 
@@ -386,3 +384,27 @@ TODO: describe how the checksum is computed
 | uni_int(16)      | Most significant 16 bits of checksum  | **have_checksum**
 | uni_int(16)      | Least significant 16 bits of checksum | **have_checksum**
 |===
+
+This checksum is a standard https://en.wikipedia.org/wiki/Cyclic_redundancy_check[CRC-32], computed from the original (or decoded) pixel data in the following way:
+
+The CRC is initialized to the value (*width* << 16) + *height*, interpreted as an unsigned 32-bit number.
+Then the pixel values of all channels are processed, in scanline order (top to bottom, left to right), where each value is represented as a little-endian integer in 1, 2 or 4 bytes, depending on the bit depth of the image.
+The following sizes are used:
+
+|===
+| Channel | All channels use at most 8 bits per pixel | At least one channel uses 9 or more bits per pixel
+
+| 0   | 1 byte  | 2 bytes
+| 1   | 2 bytes | 4 bytes
+| 2   | 2 bytes | 4 bytes
+| 3   | 1 byte  | 2 bytes
+|===
+
+.Design rationale: why more bytes for channels 1 and 2?
+****
+You might wonder why for the checksum computation, pixels in channels 1 and 2 are represented using a larger bit width than
+strictly necessary. The reason is that while for the RGBA values, a smaller width would suffice, this is not true during
+the encoding or decoding if the YCoCg color transformation is used. The Co and Cg channels (channel 1 and 2) have a larger
+range; a typical implementation would use signed 16-bit values (if the original RGB values are unsigned 8-bit) or signed 32-bit values (if the original RGB values are unsigned 16-bit). For this reason, it is convenient to use a larger buffer for these
+channels, and it is convenient to be able to compute the checksum directly on this larger buffer.
+****
