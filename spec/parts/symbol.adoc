@@ -39,7 +39,7 @@ The following code describes how to decode such an integer:
         if (min == max) return min;
 
         // split in [min..mid] [mid+1..max]
-        int med = min + (max-min)/2;
+        int mid = min + (max-min)/2;
 
         if (rac.read_bit()) {
             return read_uniform_int(mid+1, max);
