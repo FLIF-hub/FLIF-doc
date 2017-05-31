@@ -1,4 +1,3 @@
-
 == Part 1: main header
 
 |===
@@ -14,9 +13,15 @@
 |===
 
 The fifth byte is an ASCII character that can be interpreted as follows:
-for non-interlaced still images: `'1'`=Grayscale, `'3'`=RGB, `'4'`=RGBA,
-for interlaced images add +0x10 (so `'A'`=Grayscale, `'C'`=RGB, `'D'`=RGBA),
-for animations add +0x20 (so `'Q'`, `'S'`, `'T'` for non-interlaced, `'a'`,`'c'`,`'d'` for interlaced).
+
+|===
+| Animation   | Interlacing    | Grayscale | RGB   | RGBA
+
+| Still image | Non-interlaced | `'1'`     | `'3'` | `'4'`
+| Still image | Interlaced     | `'A'`     | `'C'` | `'D'`
+| Animated    | Non-interlaced | `'Q'`     | `'S'` | `'T'`
+| Animated    | Interlaced     | `'a'`     | `'c'` | `'d'`
+|===
 
 Variable-size integer encoding (varint):
 
@@ -25,4 +30,3 @@ Variable-size integer encoding (varint):
 * The unsigned integer is represented as the concatenation of the remaining 7 bit codewords.
 
 **nb_frames** is 1 for a still image, > 1 for an animation.
-
