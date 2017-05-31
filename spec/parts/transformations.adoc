@@ -329,6 +329,14 @@ way as **b~0~**.
 [discrete]
 === Transformation 9: reserved (unused)
 === Transformation 10: DuplicateFrame
+The **DuplicateFrame** transform helps compress frames in an animation sequence when they are exact duplicates of each other. All pixels in all
+channels need to be exact matches.
+
+Transform data:
+
+For every **i**th frame in the sequence except **i==0**, an integer indicating the frame index of the duplicate.
+The integer is encoded as **nz_int_A(-1, i-1)** where **-1** means not a duplicate.
+
 === Transformation 11: FrameShape
 === Transformation 12: FrameLookback
 [discrete]
