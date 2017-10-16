@@ -10,7 +10,7 @@ range is encoded. Near-zero symbol coding is used, with a single context which w
 The information is encoded as follows:
 
 * For each channel **c** :
-** **new_range(c).max** = nz_int_A(0,**orig_range(c).max**-**orig_range(c).max**)
+** **new_range(c).max** = nz_int_A(0,**orig_range(c).max**-**orig_range(c).min**)
 ** **min** = **orig_range(c).min**
 ** For **i** = 0..**new_range(c).max**-1 :
 *** **decompacted(i)** = **min** + nz_int_A(0, **orig_range(c).max**-**min**+**new_range(c).max**-**i**)
