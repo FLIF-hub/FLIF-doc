@@ -101,8 +101,8 @@ The following code describes how to decode an integer in this representation:
         // highest possible exponent
         const int emax = ilog2(amax);
 
-        // exponent is represented in unary: a series of 1s followed by 0
-        // (the end 0 is dropped if e=emax)
+        // exponent is represented in unary: a series of 0s followed by a 1
+        // (the end 1 is dropped if e=emax)
         int e;
         for (e = 0 ; e < emax ; e++) {
             if (rac.read(EXP(e,sign)) break;
