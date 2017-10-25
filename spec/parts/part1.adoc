@@ -15,12 +15,12 @@
 The fifth byte is an ASCII character that can be interpreted as follows:
 
 |===
-| Animation   | Interlacing    | Grayscale | RGB   | RGBA
+| Animation   | Interlacing    | Grayscale | RGB   | RGBA  | Notes
 
-| Still image | Non-interlaced | `'1'`     | `'3'` | `'4'`
-| Still image | Interlaced     | `'A'`     | `'C'` | `'D'`
-| Animated    | Non-interlaced | `'Q'`     | `'S'` | `'T'`
-| Animated    | Interlaced     | `'a'`     | `'c'` | `'d'`
+| Still image | Non-interlaced | `'1'`     | `'3'` | `'4'` |
+| Still image | Interlaced     | `'A'`     | `'C'` | `'D'` | For Interlaced, add 0x10 to above values
+| Animated    | Non-interlaced | `'Q'`     | `'S'` | `'T'` | For Animated, add 0x20
+| Animated    | Interlaced     | `'a'`     | `'c'` | `'d'` | For both, add 0x30
 |===
 
 Variable-size integer encoding (varint):
